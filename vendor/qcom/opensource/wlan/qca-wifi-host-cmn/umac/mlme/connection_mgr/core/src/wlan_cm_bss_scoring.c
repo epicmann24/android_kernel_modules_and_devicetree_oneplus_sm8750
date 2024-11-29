@@ -3603,8 +3603,10 @@ void wlan_cm_calculate_bss_score(struct wlan_objmgr_pdev *pdev,
 					return;
 				force_connect_candidate->entry =
 					util_scan_copy_cache_entry(scan_entry->entry);
-				if (!force_connect_candidate->entry)
+				if (!force_connect_candidate->entry) {
+					qdf_mem_free(force_connect_candidate);
 					return;
+				}
 			} else if (cm_is_better_bss(
 				   scan_entry->entry,
 				   force_connect_candidate->entry)) {
@@ -3612,8 +3614,11 @@ void wlan_cm_calculate_bss_score(struct wlan_objmgr_pdev *pdev,
 					force_connect_candidate->entry);
 				force_connect_candidate->entry =
 				  util_scan_copy_cache_entry(scan_entry->entry);
-				if (!force_connect_candidate->entry)
+				if (!force_connect_candidate->entry) {
+					qdf_mem_free(force_connect_candidate);
 					return;
+				}
+
 			}
 		}
 
@@ -3710,6 +3715,18 @@ void cm_update_dlm_mlo_score(struct wlan_objmgr_pdev *pdev,
 			}
 			qdf_list_insert_back(scan_list, &scan_entry->node);
 			*dlm_entry_updated = true;
+		} else if(denylist_action == CM_DLM_REMOVE ||
+			  denylist_action == CM_DLM_FORCE_REMOVE){
+			/* Remove node from list as it is added to DLM list */
+			status = qdf_list_remove_node(scan_list, cur_node);
+			if (QDF_IS_STATUS_ERROR(status)) {
+				mlme_err("failed to remove node for BSS "QDF_MAC_ADDR_FMT" from scan list",
+					 QDF_MAC_ADDR_REF(
+					 scan_entry->entry->bssid.bytes));
+				return;
+			}
+			*dlm_entry_updated = true;
+			util_scan_free_cache_entry(scan_entry->entry);
 		}
 		cur_node = next_node;
 		next_node = NULL;

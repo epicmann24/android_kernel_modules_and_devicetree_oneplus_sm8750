@@ -1998,6 +1998,22 @@ static ssize_t battery_type_show(struct device *dev,
 }
 static DEVICE_ATTR_RO(battery_type);
 
+static ssize_t gauge_type_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	int rc = -1;
+	struct oplus_configfs_device *chip = dev->driver_data;
+	if (!chip) {
+		chg_err("chip is NULL\n");
+		return -EINVAL;
+	}
+
+	rc = oplus_get_gauge_type();
+
+	return sprintf(buf, "%d\n", rc);
+}
+static DEVICE_ATTR_RO(gauge_type);
+
 static ssize_t vbat_uv_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
@@ -2174,6 +2190,7 @@ static struct device_attribute *oplus_battery_attributes[] = {
 	&dev_attr_battery_used_flag,
 	&dev_attr_eis_current,
 	&dev_attr_batt_bal_data,
+	&dev_attr_gauge_type,
 	NULL
 };
 
@@ -3116,7 +3133,7 @@ int oplus_update_chg_up_limit_parms(struct oplus_configfs_device *chip, const ch
 	}
 
 	chg_info("chg_up_limit_show %d %d %d %d %d\n", parms[0], parms[1], parms[2], parms[3], parms[4]);
-	ret = oplus_set_chg_up_limit(parms[0], parms[1], parms[2], parms[3], parms[4]);
+	ret = oplus_set_chg_up_limit(chip->comm_topic, parms[0], parms[1], parms[2], parms[3], parms[4]);
 
 	return ret;
 }

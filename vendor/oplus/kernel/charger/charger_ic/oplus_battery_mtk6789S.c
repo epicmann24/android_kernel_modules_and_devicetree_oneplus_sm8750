@@ -8191,6 +8191,12 @@ int oplus_pdc_setup(int *vbus_mv, int *ibus_ma) {
 		return -EINVAL;
 	}
 
+	ret = tcpm_set_pd_charging_policy(tcpc, DPM_CHARGING_POLICY_MAX_POWER_LVIC, NULL);
+	if (ret != TCPM_SUCCESS) {
+		printk(KERN_ERR "%s: tcpm_set_apdo_charging_policy fail\n", __func__);
+		return -EINVAL;
+	}
+
 	ret = tcpm_dpm_pd_request(tcpc, *vbus_mv, *ibus_ma, NULL);
 	if (ret != TCPM_SUCCESS) {
 		chg_err("tcpm_dpm_pd_request fail\n");

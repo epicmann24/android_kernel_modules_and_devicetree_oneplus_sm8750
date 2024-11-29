@@ -7622,6 +7622,21 @@ static int oplus_bq27541_get_batt_num(struct oplus_chg_ic_dev *ic_dev, int *num)
 	return 0;
 }
 
+static int oplus_bq27541_get_gauge_type(struct oplus_chg_ic_dev *ic_dev, int *gauge_type)
+{
+	struct chip_bq27541 *chip;
+
+	if (ic_dev == NULL || gauge_type == NULL) {
+		chg_err("oplus_chg_ic_dev or gauge_type is NULL");
+		return -ENODEV;
+	}
+	chip = oplus_chg_ic_get_drvdata(ic_dev);
+
+	*gauge_type = GAUGE_TYPE_PACK;
+
+	return 0;
+}
+
 static int oplus_bq27541_get_device_type(struct oplus_chg_ic_dev *ic_dev,
 					 int *type)
 {
@@ -8638,6 +8653,10 @@ static void *oplus_chg_get_func(struct oplus_chg_ic_dev *ic_dev,
 	case OPLUS_IC_FUNC_GAUGE_GET_BATT_NUM:
 		func = OPLUS_CHG_IC_FUNC_CHECK(OPLUS_IC_FUNC_GAUGE_GET_BATT_NUM,
 					       oplus_bq27541_get_batt_num);
+		break;
+	case OPLUS_IC_FUNC_GAUGE_GET_GAUGE_TYPE:
+		func = OPLUS_CHG_IC_FUNC_CHECK(OPLUS_IC_FUNC_GAUGE_GET_GAUGE_TYPE,
+					       oplus_bq27541_get_gauge_type);
 		break;
 	case OPLUS_IC_FUNC_GAUGE_GET_DEVICE_TYPE:
 		func = OPLUS_CHG_IC_FUNC_CHECK(

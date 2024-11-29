@@ -373,6 +373,7 @@ struct oplus_ufcs {
 	struct delayed_work wait_auth_data_work;
 	struct delayed_work ufcs_restart_timeout_work;
 	struct delayed_work ufcs_eis_work;
+	struct delayed_work send_authdata_to_adsp_work;
 
 	struct work_struct wired_online_work;
 	struct work_struct force_exit_work;
@@ -450,6 +451,7 @@ struct oplus_ufcs {
 	u32 adapter_id;
 	int start_retry_count;
 	bool start_check;
+	int cp_ratio;
 
 	bool wired_online;
 	bool batt_hmac;
@@ -459,6 +461,7 @@ struct oplus_ufcs {
 	int shell_temp;
 	enum oplus_temp_region batt_temp_region;
 	bool shell_temp_ready;
+	int adapter_max_curr;
 
 	int ufcs_fastchg_batt_temp_status;
 	int ufcs_temp_cur_range;
@@ -477,6 +480,7 @@ struct oplus_ufcs {
 	bool prot_crash;
 	int eis_status;
 	bool lift_vbus_use_cpvout;
+	bool ufcs_dispatch_key_ok;
 };
 
 struct current_level {
@@ -665,13 +669,17 @@ static int32_t oplus_ufcs_get_curve_vbus(struct oplus_ufcs *chip)
 	return data.target_vbus;
 }
 
-__maybe_unused
-static int32_t oplus_ufcs_get_curve_ibus(struct oplus_ufcs *chip)
+int oplus_ufcs_get_curve_ibus(struct oplus_mms *topic)
 {
+	struct oplus_ufcs *chip;
 	struct puc_strategy_ret_data data;
 	int rc;
 
-	if (chip->strategy == NULL)
+	if (topic == NULL)
+		return -EINVAL;
+
+	chip = oplus_mms_get_drvdata(topic);
+	if (chip == NULL || chip->strategy == NULL)
 		return -EINVAL;
 
 	rc = oplus_chg_strategy_get_data(chip->strategy, &data);
@@ -680,7 +688,7 @@ static int32_t oplus_ufcs_get_curve_ibus(struct oplus_ufcs *chip)
 		return rc;
 	}
 
-	return data.target_ibus;
+	return min(data.target_ibus, chip->adapter_max_curr);
 }
 
 static int oplus_ufcs_switch_to_normal(struct oplus_ufcs *chip)
@@ -751,6 +759,8 @@ static int oplus_ufcs_set_charging(struct oplus_ufcs *chip, bool charging)
 	chip->ufcs_charging = charging;
 	chg_info("set ufcs_charging=%s\n", charging ? "true" : "false");
 
+	if (!chip->ufcs_charging)
+		chip->adapter_max_curr = 0;
 	msg = oplus_mms_alloc_msg(MSG_TYPE_ITEM, MSG_PRIO_MEDIUM,
 				  UFCS_ITEM_CHARGING);
 	if (msg == NULL) {
@@ -923,6 +933,12 @@ static int oplus_ufcs_pdo_set(struct oplus_ufcs *chip, int vol_mv, int curr_ma)
 	if (chip->ufcs_ic == NULL) {
 		chg_err("ufcs_ic is NULL\n");
 		return -ENODEV;
+	}
+	/*The same voltage and current will not be applied repeatedly on the adsp ufcs protocol stack side*/
+	if ((chip->config.adsp_ufcs_project) && (chip->curr_set_ma == curr_ma) &&
+	    (chip->vol_set_mv == vol_mv)) {
+		chg_err("request  current and voltage are exactly the same as the last\n");
+		return 0;
 	}
 
 	rc = oplus_chg_ic_func(chip->ufcs_ic, OPLUS_IC_FUNC_UFCS_PDO_SET, vol_mv, curr_ma);
@@ -1219,6 +1235,27 @@ static int oplus_ufcs_cp_set_work_mode(struct oplus_ufcs *chip, enum oplus_cp_wo
 	}
 
 	rc = oplus_chg_ic_func(chip->cp_ic, OPLUS_IC_FUNC_CP_SET_WORK_MODE, mode);
+
+	if (rc >= 0) {
+		switch (mode) {
+		case CP_WORK_MODE_4_TO_1:
+			chip->cp_ratio = 4;
+			break;
+		case CP_WORK_MODE_3_TO_1:
+			chip->cp_ratio = 3;
+			break;
+		case CP_WORK_MODE_2_TO_1:
+			chip->cp_ratio = 2;
+			break;
+		case CP_WORK_MODE_BYPASS:
+			chip->cp_ratio = 1;
+			break;
+		default:
+			chg_err("unsupported cp work mode, mode=%d\n", mode);
+			rc = -ENOTSUPP;
+			break;
+		}
+	}
 
 	return rc;
 }
@@ -1658,6 +1695,7 @@ static void oplus_ufcs_force_exit(struct oplus_ufcs *chip)
 	oplus_ufcs_set_charging(chip, false);
 	oplus_ufcs_set_oplus_adapter(chip, false);
 	chip->cp_work_mode = CP_WORK_MODE_UNKNOWN;
+	chip->cp_ratio = 0;
 	chip->start_check = false;
 	chip->start_retry_count = 0;
 	chip->startup_retry_times = 0;
@@ -1684,6 +1722,7 @@ static void oplus_ufcs_soft_exit(struct oplus_ufcs *chip)
 {
 	oplus_ufcs_set_charging(chip, false);
 	chip->cp_work_mode = CP_WORK_MODE_UNKNOWN;
+	chip->cp_ratio = 0;
 	chip->start_check = false;
 	chip->start_retry_count = 0;
 	chip->startup_retry_times = 0;
@@ -1744,13 +1783,12 @@ static void oplus_ufcs_wait_auth_data_work(struct work_struct *work)
 	struct oplus_ufcs *chip =
 		container_of(dwork, struct oplus_ufcs, wait_auth_data_work);
 
-	/* send auth_data to adsp */
-	if (chip->config.adsp_ufcs_project)
-		oplus_ufcs_verify_adapter(chip, 1, chip->auth_data, UFCS_VERIFY_AUTH_DATA_SIZE);
-
 	chip->wait_auth_data_done = true;
 	vote(chip->ufcs_boot_votable, AUTH_VOTER, false, 0, false);
 	(void)oplus_ufcs_exit_daemon_process(chip);
+
+	/* send auth_data to adsp */
+	schedule_delayed_work(&chip->send_authdata_to_adsp_work, 0);
 }
 
 static int oplus_ufcs_get_emark_ability(struct oplus_ufcs *chip)
@@ -1912,10 +1950,10 @@ static int oplus_ufcs_deal_power_info(struct oplus_ufcs *chip)
 	enum oplus_chg_protocol_type type;
 
 	rc = oplus_chg_ufcs_get_power_info_ext(chip, chip->pie, UFCS_OPLUS_VND_POWER_INFO_MAX);
-	if (rc < 0) {
+	if (rc <= 0) {
 		chg_err("ufcs get power info ext error\n");
 		chip->pie_num = 0;
-		return rc;
+		return -EINVAL;
 	} else {
 		chip->pie_num = min(rc, UFCS_OPLUS_VND_POWER_INFO_MAX);
 	}
@@ -2082,8 +2120,10 @@ static void oplus_ufcs_switch_check_work(struct work_struct *work)
 		if (target_vbus <= UFCS_OUTPUT_MODE_VOL_MAX(chip->pdo[i]) &&
 		    target_vbus >= UFCS_OUTPUT_MODE_VOL_MIN(chip->pdo[i])) {
 			pdo_ok = true;
-			if (UFCS_OUTPUT_MODE_CURR_MAX(chip->pdo[i]) > max_curr)
+			if (UFCS_OUTPUT_MODE_CURR_MAX(chip->pdo[i]) > max_curr) {
 				max_curr = UFCS_OUTPUT_MODE_CURR_MAX(chip->pdo[i]);
+				chip->adapter_max_curr = max_curr;
+			}
 		}
 	}
 	if (!pdo_ok) {
@@ -2168,6 +2208,7 @@ next:
 exit:
 	oplus_ufcs_exit_ufcs_mode(chip);
 	chip->cp_work_mode = CP_WORK_MODE_UNKNOWN;
+	chip->cp_ratio = 0;
 }
 
 enum {
@@ -2594,9 +2635,6 @@ oplus_ufcs_set_current_temp_normal_range(struct oplus_ufcs *chip,
 			chip->ufcs_fastchg_batt_temp_status =
 				UFCS_BAT_TEMP_NORMAL_HIGH;
 			ret = chip->limits.ufcs_strategy_normal_current;
-			oplus_ufcs_reset_temp_range(chip);
-			chip->limits.ufcs_strategy_batt_low_temp0 +=
-				UFCS_TEMP_WARM_RANGE_THD;
 		} else {
 			chip->ufcs_fastchg_batt_temp_status =
 				UFCS_BAT_TEMP_LOW0;
@@ -3450,6 +3488,30 @@ static void oplus_ufcs_set_cool_down_curr(struct oplus_ufcs *chip, int cool_down
 	vote(chip->ufcs_curr_votable, COOL_DOWN_VOTER, !chip->chg_ctrl_by_sale_mode, target_curr, false);
 }
 
+int oplus_ufcs_level_to_current(struct oplus_mms *mms, int cool_down)
+{
+	struct oplus_ufcs *chip;
+	int target_curr = -EINVAL;
+
+	if (mms == NULL)
+		return -EINVAL;
+
+	chip = oplus_mms_get_drvdata(mms);
+	if (chip == NULL)
+		return -EINVAL;
+
+	if (chip->curr_table_type == UFCS_CURR_CP_TABLE) {
+		if (cool_down >= ARRAY_SIZE(ufcs_cp_cool_down_oplus_curve))
+			cool_down = ARRAY_SIZE(ufcs_cp_cool_down_oplus_curve) - 1;
+		target_curr = ufcs_cp_cool_down_oplus_curve[cool_down];
+	} else {
+		if (cool_down >= ARRAY_SIZE(ufcs_cool_down_oplus_curve))
+			cool_down = ARRAY_SIZE(ufcs_cool_down_oplus_curve) - 1;
+		target_curr = ufcs_cool_down_oplus_curve[cool_down];
+	}
+	return target_curr;
+}
+
 static void oplus_ufcs_set_batt_bal_curr(struct oplus_ufcs *chip)
 {
 	int target_curr;
@@ -4256,6 +4318,25 @@ err:
 	oplus_ufcs_force_exit(chip);
 }
 
+static void oplus_ufcs_send_authdata_to_adsp_work(struct work_struct *work)
+{
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct oplus_ufcs *chip =
+		container_of(dwork, struct oplus_ufcs, send_authdata_to_adsp_work);
+	int ret = 0;
+
+	if (chip->config.adsp_ufcs_project && !chip->ufcs_dispatch_key_ok) {
+		ret = oplus_ufcs_verify_adapter(chip, 1, chip->auth_data, UFCS_VERIFY_AUTH_DATA_SIZE);
+		if (ret < 0) {
+			chip->ufcs_dispatch_key_ok = false;
+			chg_err("ufcs send auth data to adsp failed ret=%d.\n", ret);
+		} else {
+			chip->ufcs_dispatch_key_ok = true;
+			chg_info("ufcs send auth data to adsp success.\n");
+		}
+	}
+}
+
 static void oplus_ufcs_comm_subs_callback(struct mms_subscribe *subs,
 					 enum mms_msg_type type, u32 id, bool sync)
 {
@@ -4965,13 +5046,30 @@ static int oplus_ufcs_topic_init(struct oplus_ufcs *chip)
 	return 0;
 }
 
+static void oplus_ufcs_online_handler(struct oplus_chg_ic_dev *ic_dev, void *virq_data)
+{
+	struct oplus_ufcs *chip = virq_data;
+
+	if (chip->auth_data_ok)
+		schedule_delayed_work(&chip->send_authdata_to_adsp_work, 0);
+}
+
 static int oplus_ufcs_virq_reg(struct oplus_ufcs *chip)
 {
+	int rc = 0;
+
+	rc = oplus_chg_ic_virq_register(chip->ufcs_ic,
+			OPLUS_IC_VIRQ_ONLINE, oplus_ufcs_online_handler, chip);
+	if (rc < 0 && rc != -ENOTSUPP)
+		chg_err("register OPLUS_IC_VIRQ_ONLINE error, rc=%d", rc);
+
 	return 0;
 }
 
 static void oplus_ufcs_virq_unreg(struct oplus_ufcs *chip)
-{}
+{
+	oplus_chg_ic_virq_release(chip->ufcs_ic, OPLUS_IC_VIRQ_ONLINE, chip);
+}
 
 static void oplus_ufcs_ic_reg_callback(struct oplus_chg_ic_dev *ic, void *data, bool timeout)
 {
@@ -4995,6 +5093,9 @@ static void oplus_ufcs_ic_reg_callback(struct oplus_chg_ic_dev *ic, void *data, 
 	rc = oplus_ufcs_topic_init(chip);
 	if (rc < 0)
 		goto topic_reg_err;
+
+	if (chip->auth_data_ok)
+		schedule_delayed_work(&chip->send_authdata_to_adsp_work, 0);
 
 	oplus_mms_wait_topic("common", oplus_ufcs_subscribe_comm_topic, chip);
 	oplus_mms_wait_topic("wired", oplus_ufcs_subscribe_wired_topic, chip);
@@ -6088,6 +6189,7 @@ static int oplus_ufcs_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&chip->wait_auth_data_work, oplus_ufcs_wait_auth_data_work);
 	INIT_DELAYED_WORK(&chip->ufcs_restart_timeout_work, oplus_ufcs_restart_timeout_work);
 	INIT_DELAYED_WORK(&chip->ufcs_eis_work, oplus_ufcs_eis_work);
+	INIT_DELAYED_WORK(&chip->send_authdata_to_adsp_work, oplus_ufcs_send_authdata_to_adsp_work);
 	INIT_WORK(&chip->wired_online_work, oplus_ufcs_wired_online_work);
 	INIT_WORK(&chip->force_exit_work, oplus_ufcs_force_exit_work);
 	INIT_WORK(&chip->soft_exit_work, oplus_ufcs_soft_exit_work);
@@ -6156,9 +6258,11 @@ static int oplus_ufcs_probe(struct platform_device *pdev)
 		chg_info("ignore encrypted data\n");
 		chip->wait_auth_data_done = true;
 		chip->auth_data_ok = true;
+		chip->ufcs_dispatch_key_ok = true;
 	} else {
 		chip->wait_auth_data_done = false;
 		chip->auth_data_ok = false;
+		chip->ufcs_dispatch_key_ok = false;
 	}
 
 	name = of_get_oplus_chg_ic_name(pdev->dev.of_node, "oplus,cp_ic", 0);
@@ -6289,23 +6393,28 @@ static __exit void oplus_ufcs_exit(void)
 
 oplus_chg_module_register(oplus_ufcs);
 
-int oplus_ufcs_current_to_level(struct oplus_mms *mms, int curr)
+int oplus_ufcs_current_to_level(struct oplus_mms *mms, int ibus_curr)
 {
 	int level = 0;
 	struct oplus_ufcs *chip;
+	int ibat_curr = 0;
 
-	if (curr <= 0)
+	if (ibus_curr <= 0)
 		return level;
 	if (mms == NULL) {
 		chg_err("mms is NULL");
 		return level;
 	}
-
 	chip = oplus_mms_get_drvdata(mms);
+	if (chip == NULL)
+		return -EINVAL;
+
+	ibat_curr = ibus_curr * chip->cp_ratio;
+
 	if (chip->curr_table_type == UFCS_CURR_CP_TABLE)
-		level = ufcs_find_level_to_current(curr, g_ufcs_cp_current_table, ARRAY_SIZE(g_ufcs_cp_current_table));
+		level = ufcs_find_level_to_current(ibat_curr, g_ufcs_cp_current_table, ARRAY_SIZE(g_ufcs_cp_current_table));
 	else
-		level = ufcs_find_level_to_current(curr, g_ufcs_current_table, ARRAY_SIZE(g_ufcs_current_table));
+		level = ufcs_find_level_to_current(ibus_curr, g_ufcs_current_table, ARRAY_SIZE(g_ufcs_current_table));
 
 	return level;
 }

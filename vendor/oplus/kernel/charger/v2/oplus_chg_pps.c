@@ -32,6 +32,7 @@
 #include <oplus_chg_comm.h>
 #include <oplus_chg_cpa.h>
 #include <oplus_impedance_check.h>
+#include <oplus_chg_monitor.h>
 #include <oplus_chg_vooc.h>
 #include <oplus_mms_wired.h>
 #include <oplus_chg_pps.h>
@@ -245,6 +246,8 @@ enum pps_vbus_check_status {
 
 struct oplus_pps {
 	struct device *dev;
+	struct oplus_mms *err_topic;
+	struct mms_subscribe *err_subs;
 	struct oplus_mms *pps_topic;
 	struct oplus_mms *cpa_topic;
 	struct mms_subscribe *cpa_subs;
@@ -280,6 +283,8 @@ struct oplus_pps {
 	struct work_struct force_exit_work;
 	struct work_struct soft_exit_work;
 	struct work_struct gauge_update_work;
+	struct work_struct close_cp_work;
+	bool process_close_cp_item;
 
 	wait_queue_head_t read_wq;
 	struct miscdevice misc_dev;
@@ -500,13 +505,17 @@ static int32_t oplus_pps_get_curve_vbus(struct oplus_pps *chip)
 	return data.target_vbus;
 }
 
-__maybe_unused
-static int32_t oplus_pps_get_curve_ibus(struct oplus_pps *chip)
+int oplus_pps_get_curve_ibus(struct oplus_mms *mms)
 {
+	struct oplus_pps *chip;
 	struct puc_strategy_ret_data data;
 	int rc;
 
-	if (chip->strategy == NULL)
+	if (mms == NULL)
+		return -EINVAL;
+
+	chip = oplus_mms_get_drvdata(mms);
+	if (chip == NULL || chip->strategy == NULL)
 		return -EINVAL;
 
 	rc = oplus_chg_strategy_get_data(chip->strategy, &data);
@@ -515,7 +524,7 @@ static int32_t oplus_pps_get_curve_ibus(struct oplus_pps *chip)
 		return rc;
 	}
 
-	return data.target_ibus;
+	return min(data.target_ibus, chip->adapter_max_curr);
 }
 
 __maybe_unused
@@ -2671,6 +2680,30 @@ static void oplus_pps_set_cool_down_curr(struct oplus_pps *chip, int cool_down)
 	vote(chip->pps_curr_votable, COOL_DOWN_VOTER, !chip->chg_ctrl_by_sale_mode, target_curr, false);
 }
 
+int oplus_pps_level_to_current(struct oplus_mms *mms, int cool_down)
+{
+	struct oplus_pps *chip;
+	int target_curr = -EINVAL;
+
+	if (mms == NULL)
+		return -EINVAL;
+
+	chip = oplus_mms_get_drvdata(mms);
+	if (chip == NULL)
+		return -EINVAL;
+
+	if (!chip->support_cp_ibus) {
+		if (cool_down >= ARRAY_SIZE(pps_cool_down_oplus_curve))
+			cool_down = ARRAY_SIZE(pps_cool_down_oplus_curve) - 1;
+		target_curr = pps_cool_down_oplus_curve[cool_down];
+	} else {
+		if (cool_down >= ARRAY_SIZE(pps_cp_cool_down_oplus_curve))
+			cool_down = ARRAY_SIZE(pps_cp_cool_down_oplus_curve) - 1;
+		target_curr = pps_cp_cool_down_oplus_curve[cool_down];
+	}
+	return target_curr;
+}
+
 static void oplus_pps_set_batt_bal_curr(struct oplus_pps *chip)
 {
 	int target_curr;
@@ -3746,6 +3779,47 @@ static void oplus_pps_subscribe_gauge_topic(struct oplus_mms *topic,
 	vote(chip->pps_boot_votable, GAUGE_TOPIC_VOTER, false, 0, false);
 }
 
+static void oplus_pps_close_cp_work(struct work_struct *work)
+{
+	struct oplus_pps *chip = container_of(work, struct oplus_pps, close_cp_work);
+	int rc = 0;
+
+	rc = oplus_pps_cp_set_work_start(chip, false);
+	chg_info("close cp, rc = %d\n", rc);
+}
+
+static void oplus_pps_error_subs_callback(struct mms_subscribe *subs, enum mms_msg_type type, u32 id, bool sync)
+{
+	struct oplus_pps *chip = subs->priv_data;
+
+	switch (type) {
+	case MSG_TYPE_ITEM:
+		switch (id) {
+		case ERR_ITEM_CLOSE_CP:
+			if (chip->process_close_cp_item && chip->pps_charging)
+				schedule_work(&chip->close_cp_work);
+			break;
+		default:
+			break;
+		}
+		break;
+	default:
+		break;
+	}
+}
+
+static void oplus_pps_subscribe_error_topic(struct oplus_mms *topic, void *prv_data)
+{
+	struct oplus_pps *chip = prv_data;
+
+	chip->err_topic = topic;
+	chip->err_subs = oplus_mms_subscribe(chip->err_topic, chip, oplus_pps_error_subs_callback, "pps");
+	if (IS_ERR_OR_NULL(chip->err_subs)) {
+		chg_err("subscribe error topic error, rc=%ld\n", PTR_ERR(chip->err_subs));
+		return;
+	}
+}
+
 static int oplus_pps_update_online(struct oplus_mms *mms,
 				    union mms_msg_data *data)
 {
@@ -3957,6 +4031,7 @@ static void oplus_pps_ic_reg_callback(struct oplus_chg_ic_dev *ic, void *data, b
 	oplus_mms_wait_topic("cpa", oplus_pps_subscribe_cpa_topic, chip);
 	oplus_mms_wait_topic("gauge", oplus_pps_subscribe_gauge_topic, chip);
 	oplus_mms_wait_topic("batt_bal", oplus_pps_subscribe_batt_bal_topic, chip);
+	oplus_mms_wait_topic("error", oplus_pps_subscribe_error_topic, chip);
 	return;
 
 topic_reg_err:
@@ -4438,6 +4513,9 @@ static int oplus_pps_parse_dt(struct oplus_pps *chip)
 	chip->lift_vbus_use_cpvout = of_property_read_bool(node, "oplus,lift_vbus_use_cpvout");
 	chg_info("lift_vbus_use_cpvout:%d\n", chip->lift_vbus_use_cpvout);
 
+	chip->process_close_cp_item = of_property_read_bool(node, "oplus,process_close_cp_item");
+	chg_info("process_close_cp_item:%d\n", chip->process_close_cp_item);
+
 	(void)oplus_pps_parse_charge_strategy(chip);
 
 	return 0;
@@ -4769,6 +4847,7 @@ static int oplus_pps_probe(struct platform_device *pdev)
 	INIT_WORK(&chip->force_exit_work, oplus_pps_force_exit_work);
 	INIT_WORK(&chip->soft_exit_work, oplus_pps_soft_exit_work);
 	INIT_WORK(&chip->gauge_update_work, oplus_pps_gauge_update_work);
+	INIT_WORK(&chip->close_cp_work, oplus_pps_close_cp_work);
 
 	rc = oplus_pps_init_imp_node(chip);
 	if (rc < 0)
@@ -4926,23 +5005,29 @@ static __exit void oplus_pps_exit(void)
 }
 
 oplus_chg_module_register(oplus_pps);
-int oplus_pps_current_to_level(struct oplus_mms *mms, int curr)
+int oplus_pps_current_to_level(struct oplus_mms *mms, int ibus_curr)
 {
 	int level = 0;
 	struct oplus_pps *chip;
+	int ibat_curr = 0;
 
-	if (curr <= 0)
+	if (ibus_curr <= 0)
 		return level;
 	if (mms == NULL) {
 		chg_err("mms is NULL");
 		return level;
 	}
+	chip = oplus_mms_get_drvdata(mms);
+	if (chip == NULL)
+		return -EINVAL;
+
+	ibat_curr = ibus_curr * chip->cp_ratio;
 
 	chip = oplus_mms_get_drvdata(mms);
 	if (chip->support_cp_ibus)
-		level = pps_find_level_to_current(curr, g_pps_cp_current_table, ARRAY_SIZE(g_pps_cp_current_table));
+		level = pps_find_level_to_current(ibat_curr, g_pps_cp_current_table, ARRAY_SIZE(g_pps_cp_current_table));
 	else
-		level = pps_find_level_to_current(curr, g_pps_current_table, ARRAY_SIZE(g_pps_current_table));
+		level = pps_find_level_to_current(ibus_curr, g_pps_current_table, ARRAY_SIZE(g_pps_current_table));
 
 	return level;
 }

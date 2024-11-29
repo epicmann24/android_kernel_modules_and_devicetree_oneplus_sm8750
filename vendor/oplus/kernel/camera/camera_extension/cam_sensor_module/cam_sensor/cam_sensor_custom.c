@@ -48,15 +48,6 @@ extern int32_t camera_io_dev_write_continuous(struct camera_io_master *io_master
 
 #define BURST_MAX_DATA_NUM (512)
 
-#define KEVENT_FB_SNESOR_PROBE_FAILED(connext, msg, sensor)					\
-	do {											\
-		snprintf(									\
-			connext, sizeof(connext),						\
-			"FBField@@%s$$ExceptId@@0x%x$$detailData@@ErrMsg=%s,SensorId=%d",	\
-			acquire_event_field(EXCEP_PROBE), EXCEP_PROBE, msg, 			\
-			sensor);								\
-			cam_olc_raise_exception(EXCEP_PROBE, connext);				\
-	} while (0)
 
 
 /*breakdown  setitngs for burst mode and normal mode */
@@ -343,10 +334,20 @@ int cam_ext_sensor_stop(struct cam_sensor_ctrl_t *s_ctrl)
 				s_ctrl->v4l2_dev_str.ent_function,
 				CAM_SENSOR_NORMAL_POWER_UP_TYPE,
 				false);
+	} else {
+		CAM_EXT_INFO(CAM_EXT_SENSOR, "sensor had power down, return");
+		mutex_unlock(&(s_ctrl->sensor_power_state_mutex));
+		mutex_unlock(&(s_ctrl->cam_sensor_mutex));
+		return rc;
 	}
 	mutex_unlock(&(s_ctrl->sensor_power_state_mutex));
-	//power off for sensor
-	rc = cam_sensor_power_down(s_ctrl);
+
+
+	if (s_ctrl->sensor_state == CAM_SENSOR_INIT) {
+		//power off for sensor, if sensor had power up and had not acquire device.
+		CAM_EXT_INFO(CAM_EXT_SENSOR, "sensor power down in advance");
+		rc = cam_sensor_power_down(s_ctrl);
+	}
 
 	mutex_unlock(&(s_ctrl->cam_sensor_mutex));
 	return rc;
@@ -773,7 +774,6 @@ int32_t cam_ext_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 	struct cam_control *cmd = (struct cam_control *)arg;
 	struct cam_sensor_power_ctrl_t *power_info =
 		&s_ctrl->sensordata->power_info;
-	char fb_payload[256] = {0};
 	bool power_up_process = false;
 
 	if (!s_ctrl || !arg) {
@@ -904,9 +904,6 @@ int32_t cam_ext_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 				s_ctrl->soc_info.index,
 				s_ctrl->sensordata->slave_info.sensor_slave_addr,
 				s_ctrl->sensordata->slave_info.sensor_id);
-// #ifdef OPLUS_FEATURE_CAMERA_COMMON
-			KEVENT_FB_SNESOR_PROBE_FAILED(fb_payload, "sensor probe failed", s_ctrl->sensordata->slave_info.sensor_id);
-// #endif
 			cam_sensor_power_down(s_ctrl);
 			goto free_power_settings;
 		}

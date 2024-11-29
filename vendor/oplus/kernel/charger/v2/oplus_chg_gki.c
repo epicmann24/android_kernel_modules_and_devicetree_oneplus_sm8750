@@ -35,6 +35,8 @@ struct oplus_gki_device {
 	struct mms_subscribe *wls_subs;
 	struct mms_subscribe *comm_subs;
 	struct mms_subscribe *vooc_subs;
+	struct mms_subscribe *ufcs_subs;
+
 	struct oplus_mms *wired_topic;
 	struct oplus_mms *gauge_topic;
 	struct oplus_mms *main_gauge_topic;
@@ -42,7 +44,6 @@ struct oplus_gki_device {
 	struct oplus_mms *comm_topic;
 	struct oplus_mms *vooc_topic;
 	struct oplus_mms *ufcs_topic;
-	struct mms_subscribe *ufcs_subs;
 
 	struct work_struct gauge_update_work;
 	struct votable *chg_disable_votable;
@@ -57,6 +58,7 @@ struct oplus_gki_device {
 	struct delayed_work status_keep_delay_unlock_work;
 	struct wakeup_source *status_wake_lock;
 	bool status_wake_lock_on;
+	bool is_ui_keep;
 
 	bool led_on;
 
@@ -196,8 +198,13 @@ static int wls_psy_get_prop(struct power_supply *psy,
 				oplus_chg_wls_set_status_keep(chip->wls_topic, WLS_SK_BY_KERNEL);
 				pval->intval = 1;
 				schedule_delayed_work(&chip->status_keep_clean_work, msecs_to_jiffies(KEEP_CLEAN_INTERVAL));
+				chip->is_ui_keep = true;
 			} else {
 				pre_wls_online = pval->intval;
+				if (chip->is_ui_keep && pval->intval == 0) {
+					pval->intval = 1;
+					break;
+				}
 				if (chip->status_wake_lock_on) {
 					cancel_delayed_work_sync(&chip->status_keep_clean_work);
 					schedule_delayed_work(&chip->status_keep_clean_work, 0);
@@ -1156,6 +1163,7 @@ static void oplus_chg_wls_status_keep_clean_work(struct work_struct *work)
 		return;
 	}
 
+	chip->is_ui_keep = false;
 	oplus_chg_wls_set_status_keep(chip->wls_topic, WLS_SK_NULL);
 	if (chip->batt_psy)
 		power_supply_changed(chip->batt_psy);

@@ -36,7 +36,7 @@
 #include <linux/version.h>
 
 
-#define SIPA_DRIVER_VERSION					("3.1.0c")
+#define SIPA_DRIVER_VERSION					("3.1.0d")
 #define SIPA_MAX_CHANNEL_SUPPORT			(8)
 
 struct sipa_err {
@@ -182,6 +182,8 @@ enum {
 	CHIP_TYPE_SIA8152X,
 	CHIP_TYPE_SIA917X,
 	CHIP_TYPE_SIA8157,
+	CHIP_TYPE_SIA8001,
+	CHIP_TYPE_SIA8102,
 	// add compatible chip type here
 	CHIP_TYPE_UNKNOWN,
 	CHIP_TYPE_INVALID
@@ -197,7 +199,9 @@ enum {
 			 : false
 
 #define IS_SUPPORT_OWI_TYPE(type) \
-			(type == CHIP_TYPE_SIA8100X )  \
+			(type == CHIP_TYPE_SIA8001  || \
+			 type == CHIP_TYPE_SIA8102  || \
+			 type == CHIP_TYPE_SIA8100X )  \
 			 ? true \
 			 : false
 

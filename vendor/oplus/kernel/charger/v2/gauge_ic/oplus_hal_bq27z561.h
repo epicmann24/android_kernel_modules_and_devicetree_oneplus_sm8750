@@ -392,6 +392,7 @@ struct chip_bq27z561 {
 	bool dsg_enable;
 	u8 chem_id[CHEM_ID_LENGTH + 1];
 	int last_cc_pre;
+	int gauge_type;
 };
 
 struct gauge_track_info_reg {

@@ -40,6 +40,7 @@ free_swap_is_low_func free_swap_is_low_fp = NULL;
 EXPORT_SYMBOL(free_swap_is_low_fp);
 #endif
 
+extern bool free_zram_is_ok(void);
 static int g_kswapd_pid = -1;
 #define KSWAPD_COMM "kswapd0"
 
@@ -67,6 +68,11 @@ int tune_dynamic_swappines(void)
 
 static void zo_set_swappiness(void *data, int *swappiness)
 {
+	if (!free_zram_is_ok()) {
+		*swappiness = 0;
+		return;
+	}
+
 	if (current_is_kswapd()) {
 #ifdef CONFIG_DYNAMIC_TUNING_SWAPPINESS
 		*swappiness = tune_dynamic_swappines();

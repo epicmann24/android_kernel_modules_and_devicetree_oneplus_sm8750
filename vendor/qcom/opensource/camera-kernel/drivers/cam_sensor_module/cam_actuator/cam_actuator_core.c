@@ -1156,12 +1156,7 @@ int32_t cam_actuator_driver_cmd(struct cam_actuator_ctrl_t *a_ctrl,
 			else
 				CAM_ERR(CAM_ACTUATOR,
 					"Failed in actuator Parsing");
-#ifdef OPLUS_FEATURE_CAMERA_COMMON
-			mutex_unlock(&(a_ctrl->actuator_mutex));
-			return rc;
-#else
 			goto release_mutex;
-#endif
 		}
 
 		if (a_ctrl->setting_apply_state ==

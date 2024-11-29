@@ -14,6 +14,9 @@
 #include "oplus_display_bl.h"
 #include "oplus_display_device_ioctl.h"
 #include "oplus_debug.h"
+#ifdef OPLUS_FEATURE_DISPLAY_ADFR
+#include "oplus_adfr.h"
+#endif /* OPLUS_FEATURE_DISPLAY_ADFR */
 
 #define BACKLIGHT_CACHE_MAX 50
 
@@ -106,7 +109,6 @@ const char *cmd_set_prop_map[DSI_CMD_SET_MAX] = {
 	"qcom,mdss-dsi-bigdc-adfr-min-fps-12-command",
 	"qcom,mdss-dsi-bigdc-adfr-min-fps-13-command",
 	"qcom,mdss-dsi-bigdc-adfr-min-fps-14-command",
-	"qcom,mdss-dsi-adfr-fakeframe-command",
 	"qcom,mdss-dsi-adfr-pre-switch-command",
 #endif /* OPLUS_FEATURE_DISPLAY_ADFR */
 #ifdef OPLUS_FEATURE_DISPLAY_HIGH_PRECISION
@@ -329,7 +331,6 @@ const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
 	"qcom,mdss-dsi-bigdc-adfr-min-fps-12-command-state",
 	"qcom,mdss-dsi-bigdc-adfr-min-fps-13-command-state",
 	"qcom,mdss-dsi-bigdc-adfr-min-fps-14-command-state",
-	"qcom,mdss-dsi-adfr-fakeframe-command-state",
 	"qcom,mdss-dsi-adfr-pre-switch-command-state",
 #endif /* OPLUS_FEATURE_DISPLAY_ADFR */
 #ifdef OPLUS_FEATURE_DISPLAY_HIGH_PRECISION
@@ -563,6 +564,63 @@ int oplus_panel_cmd_print(struct dsi_panel *panel, enum dsi_cmd_set_type type)
 	case DSI_CMD_DEFAULT_SWITCH_PAGE:
 		/* Do nothing */
 		break;
+#ifdef OPLUS_FEATURE_DISPLAY_ADFR
+	case DSI_CMD_ADFR_MIN_FPS_0:
+	case DSI_CMD_ADFR_MIN_FPS_1:
+	case DSI_CMD_ADFR_MIN_FPS_2:
+	case DSI_CMD_ADFR_MIN_FPS_3:
+	case DSI_CMD_ADFR_MIN_FPS_4:
+	case DSI_CMD_ADFR_MIN_FPS_5:
+	case DSI_CMD_ADFR_MIN_FPS_6:
+	case DSI_CMD_ADFR_MIN_FPS_7:
+	case DSI_CMD_ADFR_MIN_FPS_8:
+	case DSI_CMD_ADFR_MIN_FPS_9:
+	case DSI_CMD_ADFR_MIN_FPS_10:
+	case DSI_CMD_ADFR_MIN_FPS_11:
+	case DSI_CMD_ADFR_MIN_FPS_12:
+	case DSI_CMD_ADFR_MIN_FPS_13:
+	case DSI_CMD_ADFR_MIN_FPS_14:
+	case DSI_CMD_HPWM_ADFR_MIN_FPS_0:
+	case DSI_CMD_HPWM_ADFR_MIN_FPS_1:
+	case DSI_CMD_HPWM_ADFR_MIN_FPS_2:
+	case DSI_CMD_HPWM_ADFR_MIN_FPS_3:
+	case DSI_CMD_HPWM_ADFR_MIN_FPS_4:
+	case DSI_CMD_HPWM_ADFR_MIN_FPS_5:
+	case DSI_CMD_HPWM_ADFR_MIN_FPS_6:
+	case DSI_CMD_HPWM_ADFR_MIN_FPS_7:
+	case DSI_CMD_HPWM_ADFR_MIN_FPS_8:
+	case DSI_CMD_HPWM_ADFR_MIN_FPS_9:
+	case DSI_CMD_HPWM_ADFR_MIN_FPS_10:
+	case DSI_CMD_HPWM_ADFR_MIN_FPS_11:
+	case DSI_CMD_HPWM_ADFR_MIN_FPS_12:
+	case DSI_CMD_HPWM_ADFR_MIN_FPS_13:
+	case DSI_CMD_HPWM_ADFR_MIN_FPS_14:
+	case DSI_CMD_BIGDC_ADFR_MIN_FPS_0:
+	case DSI_CMD_BIGDC_ADFR_MIN_FPS_1:
+	case DSI_CMD_BIGDC_ADFR_MIN_FPS_2:
+	case DSI_CMD_BIGDC_ADFR_MIN_FPS_3:
+	case DSI_CMD_BIGDC_ADFR_MIN_FPS_4:
+	case DSI_CMD_BIGDC_ADFR_MIN_FPS_5:
+	case DSI_CMD_BIGDC_ADFR_MIN_FPS_6:
+	case DSI_CMD_BIGDC_ADFR_MIN_FPS_7:
+	case DSI_CMD_BIGDC_ADFR_MIN_FPS_8:
+	case DSI_CMD_BIGDC_ADFR_MIN_FPS_9:
+	case DSI_CMD_BIGDC_ADFR_MIN_FPS_10:
+	case DSI_CMD_BIGDC_ADFR_MIN_FPS_11:
+	case DSI_CMD_BIGDC_ADFR_MIN_FPS_12:
+	case DSI_CMD_BIGDC_ADFR_MIN_FPS_13:
+	case DSI_CMD_BIGDC_ADFR_MIN_FPS_14:
+		if (panel->cur_mode->priv_info->oplus_adfr_idle_min_fps_log) {
+			ADFR_DEBUG("[%s] dsi_cmd: %s, count=%d\n", panel->oplus_panel.vendor_name,
+					cmd_set_prop_map[type], count);
+			panel->cur_mode->priv_info->oplus_adfr_idle_min_fps_log = false;
+		} else {
+			ADFR_INFO("[%s] dsi_cmd: %s, count=%d\n", panel->oplus_panel.vendor_name,
+					cmd_set_prop_map[type], count);
+		}
+		break;
+#endif /* OPLUS_FEATURE_DISPLAY_ADFR */
+
 	default:
 		OPLUS_DSI_INFO("[%s] dsi_cmd: %s\n", panel->oplus_panel.vendor_name,
 				cmd_set_prop_map[type]);
@@ -749,7 +807,7 @@ int oplus_panel_cmdq_pack_status_reset(void *sde_connector)
 	}
 
 	if (c_conn->connector_type != DRM_MODE_CONNECTOR_DSI) {
-		OPLUS_DSI_WARN("not in dsi mode, should not reset cmdq pack status\n");
+		OPLUS_DSI_DEBUG("not in dsi mode, should not reset cmdq pack status\n");
 		return 0;
 	}
 

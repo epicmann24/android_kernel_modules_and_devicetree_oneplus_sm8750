@@ -852,6 +852,7 @@ static ssize_t proc_fingerprint_active_write(struct file *file,
 		return count;
 	}
 
+	mutex_lock(&tcm->mutex);
 	tcm->fp_active = !!tmp;
 	TPD_INFO("%s: fp_active = %d.\n", __func__, tcm->fp_active);
 
@@ -872,13 +873,13 @@ static ssize_t proc_fingerprint_active_write(struct file *file,
 				retval = syna_tcm_sleep(tcm->tcm_dev, false);
 				if (retval < 0) {
 					TPD_INFO("Fail to exit deep sleep\n");
-					return count;
+					goto exit;
 				}
 			}
 			retval = syna_dev_enable_lowpwr_gesture(tcm, true);
 			if (retval < 0) {
 				TPD_INFO("Fail to enable low power gesture mode\n");
-				return count;
+				goto exit;
 			}
 			TPD_INFO("low power gesture mode enabled\n");
 		} else {
@@ -886,7 +887,7 @@ static ssize_t proc_fingerprint_active_write(struct file *file,
 			retval = syna_tcm_sleep(tcm->tcm_dev, true);
 			if (retval < 0) {
 				TPD_INFO("Fail to enter deep sleep\n");
-				return count;
+				goto exit;
 			}
 			/* once lpwg is enabled, irq should be alive.
 			* otherwise, disable irq in suspend.
@@ -897,6 +898,8 @@ static ssize_t proc_fingerprint_active_write(struct file *file,
 			TPD_INFO("sleep mode enabled\n");
 		}
 	}
+exit:
+	mutex_unlock(&tcm->mutex);
 
 	return count;
 }

@@ -7,7 +7,7 @@ extern unsigned int g_set_async_ux_after_pending;
 extern unsigned int unset_ux_match_t;
 
 extern int sync_insert_queue;
-extern int fg_list_enable;
+extern int fg_list_dynamic_enable;
 extern int fg_list_async_first;
 
 int oplus_binder_sysfs_init(void);

@@ -1715,6 +1715,23 @@ int oplus_gauge_get_batt_num(void)
 	return num;
 }
 
+int oplus_get_gauge_type(void)
+{
+	int rc;
+	int gauge_type = GAUGE_TYPE_UNKNOW;
+
+	if (!g_mms_gauge)
+		return GAUGE_TYPE_UNKNOW;
+
+	rc = oplus_chg_ic_func(g_mms_gauge->gauge_ic, OPLUS_IC_FUNC_GAUGE_GET_GAUGE_TYPE, &gauge_type);
+	if (rc < 0) {
+		chg_err("can't get gauge type, rc=%d\n", rc);
+		return GAUGE_TYPE_UNKNOW;
+	}
+
+	return gauge_type;
+}
+
 static int oplus_mms_gauge_set_err_code(struct oplus_mms_gauge *chip,
 					unsigned int err_code)
 {

@@ -380,7 +380,8 @@ int32_t cam_csiphy_parse_dt_info(struct platform_device *pdev,
 	} else if (of_device_is_compatible(soc_info->dev->of_node, "qcom,csiphy-dodgeultrawide")) {
 		csiphy_dev->ctrl_reg = &ctrl_reg_2_3_0_dodge_ultrawide;
 		csiphy_dev->hw_version = CSIPHY_VERSION_V230_DODGE_ULTRAWIDE;
-
+		csiphy_dev->is_divisor_32_comp = true;
+		csiphy_dev->clk_lane = 0;
 	} else if (of_device_is_compatible(soc_info->dev->of_node, "qcom,csiphy-pistafront")) {
 		csiphy_dev->ctrl_reg = &ctrl_reg_2_3_0_pista_front;
 		csiphy_dev->hw_version = CSIPHY_VERSION_V230_PISTA_FRONT;

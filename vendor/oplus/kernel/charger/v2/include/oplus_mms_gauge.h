@@ -61,6 +61,14 @@ enum batt_connect_type {
 	SERIAL_CONNECT_TYPE,
 };
 
+enum {
+    GAUGE_TYPE_UNKNOW = 0,
+    GAUGE_TYPE_PLATFORM = 1,
+    GAUGE_TYPE_PACK = 2,
+    GAUGE_TYPE_BOARD = 3,
+    GAUGE_TYPE_MAX,
+};
+
 struct battery_manufacture_info {
     u16 manu_date;
     u16 first_usage_date;
@@ -123,6 +131,7 @@ int oplus_gauge_lock(void);
 int oplus_gauge_unlock(void);
 bool oplus_gauge_is_locked(void);
 int oplus_gauge_get_batt_num(void);
+int oplus_get_gauge_type(void);
 int oplus_gauge_get_batt_capacity_mah(struct oplus_mms *topic);
 
 int oplus_gauge_get_dod0(struct oplus_mms *mms, int index, int *val);

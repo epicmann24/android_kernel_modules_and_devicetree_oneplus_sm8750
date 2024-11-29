@@ -156,6 +156,7 @@ struct oplus_chg_wired {
 	int vbus_set_mv;
 	int vbus_mv;
 	int vbat_mv;
+	enum oplus_chg_protocol_type cpa_current_type;
 	enum oplus_temp_region temp_region;
 	enum oplus_wired_charge_mode chg_mode;
 	enum comm_topic_item fcc_gear;
@@ -708,10 +709,15 @@ static void oplus_wired_qc_config_work(struct work_struct *work)
 	if (!rc) {
 		chg_err("qc config timeout\n");
 		chip->vbus_mv = oplus_wired_get_vbus();
-		if (chip->vbus_mv >= 7500)
+		if (chip->vbus_mv >= 7500) {
 			vbus_set_mv = OPLUS_CHG_VBUS_9V;
-		else
+		} else {
+			mutex_lock(&chip->icl_lock);
+			oplus_wired_set_qc_config(OPLUS_CHG_QC_2_0, OPLUS_CHG_VBUS_5V);
+			mutex_unlock(&chip->icl_lock);
+			oplus_wired_aicl_rerun();
 			vbus_set_mv = OPLUS_CHG_VBUS_5V;
+		}
 		chip->qc_action = OPLUS_ACTION_NULL;
 	}
 	if (chip->qc_action == OPLUS_ACTION_BOOST)
@@ -1723,11 +1729,6 @@ static int oplus_wired_input_suspend_vote_callback(struct votable *votable,
 			chg_err("vooc_chg_auto_mode_votable not found\n");
 	}
 
-	if (oplus_get_chg_spec_version() >= OPLUS_CHG_SPEC_VER_V3P7 && chip->chg_online && disable) {
-		vote(chip->icl_votable, CHARGE_SUSPEND_VOTER, true, 500, false);
-		usleep_range(10000, 10000);
-	}
-
 	rc = oplus_wired_input_enable(!disable);
 
 	if (suspend_check_only)
@@ -1740,9 +1741,6 @@ static int oplus_wired_input_suspend_vote_callback(struct votable *votable,
 		else
 			chg_err("vooc_chg_auto_mode_votable not found\n");
 	}
-
-	if (oplus_get_chg_spec_version() >= OPLUS_CHG_SPEC_VER_V3P7 && !disable)
-		vote(chip->icl_votable, CHARGE_SUSPEND_VOTER, false, 0, true);
 
 	/* Restore current setting */
 	if (!disable && suspend) {

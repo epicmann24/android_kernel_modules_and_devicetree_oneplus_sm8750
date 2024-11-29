@@ -39,6 +39,8 @@
 
 #define ALARM_NUMTYPE 2
 
+#define COMM_LEN 16
+
 struct timerfd_ctx {
 	union {
 		struct hrtimer tmr;
@@ -58,7 +60,7 @@ struct timerfd_ctx {
 };
 
 struct alarm_info {
-	char *comm;
+	char comm[COMM_LEN];
 	int pid;
 	long long exp;
 	void *func;
@@ -78,7 +80,7 @@ typedef struct non_timerfd_alarm_info {
 }ntf_alarm_info;
 
 struct trigger_stat {
-	char *comm;
+	char comm[COMM_LEN];
 	int pid;
 	unsigned int cnt;
 };
@@ -125,7 +127,9 @@ void ntf_alarms_init(ntf_alarm_info *ntf_alarms)
 
 void ntf_alarms_add(struct alarm *alarm, struct alarm_info *alarm_elm)
 {
-	alarm_elm->comm = current->comm;
+	strncpy(alarm_elm->comm, current->comm, COMM_LEN - 1);
+	alarm_elm->comm[COMM_LEN - 1] = '\0';
+
 	alarm_elm->pid  = current->pid;
 	alarm_elm->exp  = ktime_to_ms(alarm->node.expires);
 	alarm_elm->func = alarm->function;
@@ -133,7 +137,7 @@ void ntf_alarms_add(struct alarm *alarm, struct alarm_info *alarm_elm)
 
 void ntf_alarms_clear(struct alarm_info *alarm_elm)
 {
-	alarm_elm->comm = NULL;
+	memset(alarm_elm->comm, 0, COMM_LEN);
 	alarm_elm->pid  = -1;
 	alarm_elm->exp  = 0;
 	alarm_elm->func = NULL;
@@ -157,14 +161,14 @@ static void alarm_trigger_add(struct alarm_info *frd_alarm, struct trigger_info 
 
 	for(i = 0; i < ALARM_STAT_ARRAY_SIZE; i++) {
 		if(alarm_trig->stats[i].pid == frd_alarm->pid) {
-			alarm_trig->stats[i].comm = frd_alarm->comm;
 			alarm_trig->stats[i].cnt++;
 			break;
 		}
 
-		if((alarm_trig->stats[i].pid == 0) && (!alarm_trig->stats[i].comm)) {
+		if((alarm_trig->stats[i].pid == 0) && (strlen(alarm_trig->stats[i].comm) == 0)) {
 			alarm_trig->stats[i].pid  = frd_alarm->pid;
-			alarm_trig->stats[i].comm = frd_alarm->comm;
+			strncpy(alarm_trig->stats[i].comm, frd_alarm->comm, COMM_LEN - 1);
+			alarm_trig->stats[i].comm[COMM_LEN - 1] = '\0';
 			alarm_trig->stats[i].cnt++;
 
 			alarm_trig->array_size++;
@@ -258,7 +262,8 @@ static void handler_timerfd_poll(struct file *file)
 				is_timerfd_alarmproc_function(fired_alarm_info.fired_alarm.func) &&
 				(fired_alarm_info.fired_alarm.exp == exp)) {
 
-			fired_alarm_info.fired_alarm.comm = current->comm;
+			strncpy(fired_alarm_info.fired_alarm.comm, current->comm, COMM_LEN - 1);
+			fired_alarm_info.fired_alarm.comm[COMM_LEN - 1] = '\0';
 			fired_alarm_info.fired_alarm.pid  = current->pid;
 
 			alarm_trigger_add(&fired_alarm_info.fired_alarm, &alarm_trigger);
@@ -317,8 +322,6 @@ static void ntf_alarm_work(struct work_struct *work)
 	bool find_kernel_alarm_source = false;
 	long long exp;
 	struct alarm *alarm;
-	char *non_timerfd_comm;
-	int non_timerfd_pid;
 	long long non_timerfd_exp;
 
 	struct fired_alarm_info *fired_info = container_of(work, struct fired_alarm_info, ntf_work);
@@ -340,10 +343,11 @@ static void ntf_alarm_work(struct work_struct *work)
 		for(i = 0; i < NON_TIMERFD_ALARM_MAX; i++) {
 			non_timerfd_exp = non_timerfd_alarms.alarm_info[i].exp;
 			if(fired_alarm_info.fired_alarm.exp == non_timerfd_exp) {
-				non_timerfd_comm = non_timerfd_alarms.alarm_info[i].comm;
-				non_timerfd_pid  = non_timerfd_alarms.alarm_info[i].pid;
-				fired_alarm_info.fired_alarm.comm = non_timerfd_comm;
-				fired_alarm_info.fired_alarm.pid  = non_timerfd_pid;
+				strncpy(fired_alarm_info.fired_alarm.comm, \
+					non_timerfd_alarms.alarm_info[i].comm, COMM_LEN - 1);
+				fired_alarm_info.fired_alarm.comm[COMM_LEN - 1] = '\0';
+				fired_alarm_info.fired_alarm.pid = non_timerfd_alarms.alarm_info[i].pid;
+
 				find_kernel_alarm_source = true;
 				ntf_alarms_clear(&non_timerfd_alarms.alarm_info[i]);
 				break;
@@ -499,7 +503,7 @@ static int oplus_timer_stats_show(struct seq_file *seq, void *v)
 	seq_printf(seq, "PID      comm                 cnt\n");
 
 	for(i = 0; i < alarm_trigger.array_size; i++) {
-		if(alarm_trigger.stats[i].comm) {
+		if(strlen(alarm_trigger.stats[i].comm) != 0) {
 			alarm_comm = alarm_trigger.stats[i].comm;
 		}
 
@@ -550,6 +554,8 @@ int alarmtimer_hook_init(void)
 
 	ntf_wq = create_workqueue("ntf_wq");
 	INIT_WORK(&(fired_alarm_info.ntf_work),ntf_alarm_work);
+
+	alarm_trigger_reset(&alarm_trigger);
 
 	ret = register_kretprobe(&krp_alarm_restart);
 	if (ret < 0) {

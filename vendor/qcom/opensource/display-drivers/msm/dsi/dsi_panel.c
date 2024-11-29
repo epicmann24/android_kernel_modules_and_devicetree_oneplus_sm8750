@@ -1663,6 +1663,8 @@ static int dsi_panel_parse_qsync_caps(struct dsi_panel *panel,
 				qsync_caps->qsync_min_fps_list[i];
 	}
 
+	qsync_caps->level_te = utils->read_bool(utils->data, "qcom,qsync-level-te");
+
 qsync_support:
 	/* allow qsync support only if DFPS is with VFP approach */
 	if ((panel->dfps_caps.dfps_support) &&
@@ -4292,6 +4294,10 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 				"qcom,mdss-dsi-panel-physical-type", NULL);
 	if (panel_physical_type && !strcmp(panel_physical_type, "oled"))
 		panel->panel_type = DSI_DISPLAY_PANEL_TYPE_OLED;
+
+	panel->disable_cesta_hw_sleep = utils->read_bool(utils->data,
+				"qcom,mdss-disable-cesta-hw-sleep");
+
 	rc = dsi_panel_parse_host_config(panel);
 	if (rc) {
 		DSI_ERR("failed to parse host configuration, rc=%d\n",
@@ -5653,8 +5659,6 @@ int dsi_panel_switch(struct dsi_panel *panel)
 
 #ifdef OPLUS_FEATURE_DISPLAY_ADFR
 	oplus_adfr_status_reset(panel);
-	oplus_adfr_timing_te_source_vsync_switch(panel);
-	oplus_adfr_resolution_mux_vsync_switch(panel);
 #endif /* OPLUS_FEATURE_DISPLAY_ADFR */
 
 #ifdef OPLUS_FEATURE_DISPLAY

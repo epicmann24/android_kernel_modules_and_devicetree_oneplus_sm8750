@@ -20,6 +20,7 @@ def define_sun():
                     "OPLUS_FEATURE_DISPLAY_TEMP_COMPENSATION",
                     "OPLUS_FEATURE_DISPLAY_ONSCREENFINGERPRINT",
                     "OPLUS_TRACKPOINT_REPORT",
+                    "OPLUS_FEATURE_APDMR",
 #endif /* OPLUS_FEATURE_DISPLAY */
                     "CONFIG_DRM_MSM_SDE",
                     "CONFIG_SYNC_FILE",

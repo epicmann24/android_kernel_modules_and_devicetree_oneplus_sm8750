@@ -98,6 +98,7 @@ static atomic64_t max_skip_interval = ATOMIC_LONG_INIT(MAX_SKIP_INTERVAL);
 static atomic64_t empty_round_check_threshold = ATOMIC_LONG_INIT(EMPTY_ROUND_CHECK_THRESHOLD);
 static unsigned long reclaim_exceed_sleep_ms = 50;
 static unsigned long all_totalreserve_pages;
+static u64 zram_used_limit_pages = 0;
 
 static wait_queue_head_t snapshotd_wait;
 static atomic_t snapshotd_wait_flag;
@@ -1027,6 +1028,19 @@ static int swapd_shrink_parameter_show(struct seq_file *m, void *v)
 	return 0;
 }
 
+static int zram_used_limit_mb_write(struct cgroup_subsys_state *css,
+				    struct cftype *cft, s64 val)
+{
+	zram_used_limit_pages = (val << 20) >> PAGE_SHIFT;
+	return 0;
+}
+
+static s64 zram_used_limit_mb_read(struct cgroup_subsys_state *css,
+				   struct cftype *cft)
+{
+	return (zram_used_limit_pages << PAGE_SHIFT) >> 20;
+}
+
 struct cftype mem_cgroup_swapd_legacy_files[] = {
 	{
 		.name = "active_app_info_list",
@@ -1144,6 +1158,12 @@ struct cftype mem_cgroup_swapd_legacy_files[] = {
 		.write = swapd_nap_jiffies_write,
 		.seq_show = swapd_nap_jiffies_show,
 	},
+	{
+		.name = "zram_used_limit_mb",
+		.flags = CFTYPE_ONLY_ON_ROOT,
+		.write_s64 = zram_used_limit_mb_write,
+		.read_s64 = zram_used_limit_mb_read,
+	},
 	{ }, /* terminate */
 };
 
@@ -1240,6 +1260,9 @@ static unsigned long get_nr_zram_total(void)
 	if (!swapd_zram)
 		return nr_zram;
 
+	if (zram_used_limit_pages)
+		return zram_used_limit_pages;
+
 	nr_zram = swapd_zram->disksize >> PAGE_SHIFT;
 #if (defined CONFIG_ZRAM_WRITEBACK) || (defined CONFIG_HYBRIDSWAP_CORE)
 	nr_zram -= (get_nr_zram_increase() / INC_EXTRA_ZRAM_RATIO);
@@ -1272,7 +1295,7 @@ static inline bool zram_is_full(void)
 	return zram_used_pages() >= get_nr_zram_total();
 }
 
-static bool free_zram_is_ok(void)
+bool free_zram_is_ok(void)
 {
 	unsigned long nr_used, nr_tot, nr_rsv, same_pages;
 
@@ -1287,6 +1310,7 @@ static bool free_zram_is_ok(void)
 
 	return nr_used < (nr_tot - nr_rsv);
 }
+EXPORT_SYMBOL_GPL(free_zram_is_ok);
 
 static bool zram_need_swapout(void)
 {

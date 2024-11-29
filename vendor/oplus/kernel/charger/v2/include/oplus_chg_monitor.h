@@ -20,6 +20,7 @@ enum err_topic_item {
 	ERR_ITEM_CHG_INTO_LIQUID,
 	ERR_ITEM_DEEP_DISCHG_PROFILE,
 	ERR_ITEM_EIS_TIMEOUT,
+	ERR_ITEM_CLOSE_CP,
 };
 
 enum oplus_chg_track_mcu_voocphy_break_code {

@@ -1586,6 +1586,12 @@ static struct mms_item oplus_monitor_item[] = {
 			.update = NULL,
 		}
 	},
+	{
+		.desc = {
+			.item_id = ERR_ITEM_CLOSE_CP,
+		}
+	},
+
 };
 
 static const struct oplus_mms_desc oplus_monitor_desc = {

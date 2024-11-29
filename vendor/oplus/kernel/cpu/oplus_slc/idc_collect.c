@@ -19,6 +19,8 @@
 #include <linux/errno.h>
 #include <linux/spinlock.h>
 #include <linux/seq_file.h>
+#include <linux/timer.h>
+#include <linux/jiffies.h>
 
 #include <linux/cpufreq.h>
 #include "../../../drivers/gpu/mediatek/gpufreq/v2/include/gpufreq_v2.h"
@@ -35,7 +37,7 @@
 #define INDICATOR_COLLECT_VER(SIZE) ((SIZE << 16) | BASE_VERSION)
 #define MMAP_DATA_VER	   1
 #define MMAP_DATA_MAX_CNT   20
-#define THREAD_POLLING_TIME 50000 /* us */
+#define THREAD_POLLING_TIME 50 /* ms */
 
 #define IDC_IOCTL_DEF(ioctl, _func) \
 		[IDC_IOCTL_NR(ioctl)] = { \
@@ -179,10 +181,10 @@ static const struct idc_ioctl_desc idc_ioctls[] = {
 	IDC_IOCTL_DEF(IDC_IOCTL_GET_INDICATOR, ioctl_idc_data),
 };
 
-static struct task_struct *indicator_collect_thread;
+static struct task_struct *indicator_collect_thread_oneshot;
 static char indicator_collect_enable;
 static unsigned int idc_blocklistmap;
-static DEFINE_MUTEX(idc_collect_enable_mutex);
+static struct timer_list idc_timer;
 
 static void idc_slc_info(struct indicator_data *data)
 {
@@ -292,17 +294,10 @@ static void indicator_collect_info(void)
 static int indicator_collect_main(void *arg)
 {
 	while (!kthread_should_stop()) {
-		mutex_lock(&idc_collect_enable_mutex);
-		if (!indicator_collect_enable) {
-			mutex_unlock(&idc_collect_enable_mutex);
-			set_current_state(TASK_INTERRUPTIBLE);
-			schedule();
-			set_current_state(TASK_RUNNING);
-		} else {
-			indicator_collect_info();
-			mutex_unlock(&idc_collect_enable_mutex);
-			usleep_range(THREAD_POLLING_TIME, THREAD_POLLING_TIME + 1000);
-		}
+		set_current_state(TASK_RUNNING);
+		indicator_collect_info();
+		set_current_state(TASK_UNINTERRUPTIBLE);
+		schedule();
 	}
 	return 0;
 }
@@ -563,6 +558,14 @@ static void idc_clear_history(void)
 	spin_unlock_irqrestore(&data_lock, flags);
 }
 
+static void idc_timer_callback(struct timer_list *timer)
+{
+	if (indicator_collect_thread_oneshot) {
+		wake_up_process(indicator_collect_thread_oneshot);
+		mod_timer(&idc_timer, jiffies + msecs_to_jiffies(THREAD_POLLING_TIME));
+	}
+}
+
 static ssize_t idc_enable_proc_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos)
 {
 	unsigned int val;
@@ -579,27 +582,23 @@ static ssize_t idc_enable_proc_write(struct file *file, const char __user *buf, 
 	if (indicator_collect_enable == !!val)
 		return count;
 
-	mutex_lock(&idc_collect_enable_mutex);
 	if (val&1) {
 		idc_clear_history();
 		/*enable task*/
-		if (IS_ERR(indicator_collect_thread))
-			goto idc_enable_err;
-		wake_up_process(indicator_collect_thread);
+		if (IS_ERR(indicator_collect_thread_oneshot)) {
+			pr_err("indicator_collect_thread_oneshot fail\n");
+			return -1;
+		}
+		wake_up_process(indicator_collect_thread_oneshot);
+		mod_timer(&idc_timer, jiffies + msecs_to_jiffies(THREAD_POLLING_TIME));
 		indicator_collect_enable = 1;
 	} else {
 		/*suspend task*/
 		indicator_collect_enable = 0;
+		del_timer_sync(&idc_timer);
 	}
 
-	idc_debug = (val>>1) & 1;
-
-	mutex_unlock(&idc_collect_enable_mutex);
 	return count;
-
-idc_enable_err:
-	mutex_unlock(&idc_collect_enable_mutex);
-	return -1;
 }
 
 static const struct proc_ops idc_enable_proc_ops = {
@@ -639,10 +638,12 @@ static ssize_t idc_ctrl_proc_write(struct file *file, const char __user *buf, si
 
 	if (val_1 == 1) {
 		pr_info("[%s] block list, ret %d\n", __func__, ret);
-	if (val_3 == 1)
-		idc_blocklistmap |= (1 << val_2);
-	else
-		idc_blocklistmap &= (~(1 << val_2));
+		if (val_3 == 1)
+			idc_blocklistmap |= (1 << val_2);
+		else
+			idc_blocklistmap &= (~(1 << val_2));
+	} else if (val_1 == 99) {
+		idc_debug = (val_2 == 0) ? 0 : 1;
 	}
 	return count;
 }
@@ -663,35 +664,33 @@ static void create_proc(struct proc_dir_entry *parent_dir)
 int oplus_slc_indicator_init(struct proc_dir_entry *parent_dir)
 {
 	int ret = -1;
-	indicator_collect_thread = kthread_run(indicator_collect_main, 0, "idc_collect");
-	if (IS_ERR(indicator_collect_thread)) {
-		pr_err("Failed to create indicator_collect_thread");
+	indicator_collect_thread_oneshot = kthread_create(indicator_collect_main, 0, "idc_collect");
+	if (IS_ERR(indicator_collect_thread_oneshot)) {
+		pr_err("Failed to create indicator_collect_thread_oneshot");
 		return ret;
 	}
 
 	cluster_init();
 	create_dev();
 	create_proc(parent_dir);
+	timer_setup(&idc_timer, idc_timer_callback, TIMER_DEFERRABLE);
 
 	return 0;
 }
 
 void oplus_slc_indicator_exit(void)
 {
-	if (indicator_collect_thread)
-		kthread_stop(indicator_collect_thread);
+	if (indicator_collect_thread_oneshot)
+		kthread_stop(indicator_collect_thread_oneshot);
 }
 
 void oplus_slc_indicator_suspend(bool isSuspend)
 {
-	static char idc_status;
 	if (isSuspend) {
-		idc_status = indicator_collect_enable;
 		indicator_collect_enable = 0;
+		del_timer(&idc_timer);
 		pr_info("oplus_slc_idc suspend\n");
-	} else {
-		indicator_collect_enable = idc_status;
+	} else
 		pr_info("oplus_slc_idc resume\n");
-	}
 }
 

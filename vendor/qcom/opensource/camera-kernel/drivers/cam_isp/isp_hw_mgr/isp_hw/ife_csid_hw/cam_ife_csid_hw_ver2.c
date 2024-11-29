@@ -981,13 +981,23 @@ static int cam_ife_csid_ver2_mc_top_half(
 
 	th_payload->is_comp_irq = true;
 	rc = cam_ife_csid_ver2_path_top_half(evt_id, th_payload);
+#ifdef OPLUS_FEATURE_CAMERA_COMMON
+	//evt_payload = (struct cam_ife_csid_ver2_evt_payload *)th_payload->evt_payload_priv;
+	//evt_payload->is_mc = true;
+#else
 	evt_payload = (struct cam_ife_csid_ver2_evt_payload *)th_payload->evt_payload_priv;
 	evt_payload->is_mc = true;
+#endif
 
 	if (rc) {
 		CAM_ERR(CAM_ISP, "Multi context top half fail");
 		return rc;
 	}
+
+#ifdef OPLUS_FEATURE_CAMERA_COMMON
+	evt_payload = (struct cam_ife_csid_ver2_evt_payload *)th_payload->evt_payload_priv;
+	evt_payload->is_mc = true;
+#endif
 
 	return 0;
 }
@@ -2019,7 +2029,9 @@ static int cam_ife_csid_ver2_rx_err_process_bottom_half(
 				lane_overflow = true;
 			}
 		}
-
+#ifdef OPLUS_FEATURE_CAMERA_COMMON
+		KEVENT_FB_FRAME_ERROR(fb_payload, "IFE FRAME ERROR", (csid_hw->rx_cfg.phy_sel - 1));
+#endif
 		if (lane_overflow) {
 			event_type |= CAM_ISP_HW_ERROR_CSID_LANE_FIFO_OVERFLOW;
 			CAM_ERR_BUF(CAM_ISP, log_buf, CAM_IFE_CSID_LOG_BUF_LEN, &len,
@@ -2151,9 +2163,6 @@ static int cam_ife_csid_ver2_rx_err_process_bottom_half(
 				"UNBOUNDED_FRAME: Frame started with EOF or No EOF");
 			CAM_ERR(CAM_ISP, "CSID[%u] Fatal Errors: %s",
 				csid_hw->hw_intf->hw_idx, log_buf);
-#ifdef OPLUS_FEATURE_CAMERA_COMMON
-			KEVENT_FB_FRAME_ERROR(fb_payload, "UNBOUNDED FRAME", (csid_hw->rx_cfg.phy_sel - 1));
-#endif
 		}
 
 		len = 0;

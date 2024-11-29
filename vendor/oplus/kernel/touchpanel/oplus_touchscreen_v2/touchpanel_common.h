@@ -69,6 +69,7 @@
 #define HEART			17
 #define S_GESTURE		18 /* new project not use this gesture type*/
 #define PENDETECT		18
+#define WATERPROOF_RUS_BIT	7
 
 #define TEST_RST_OK		0
 #define TEST_RST_NG		1

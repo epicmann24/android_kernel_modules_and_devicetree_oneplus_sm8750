@@ -99,6 +99,60 @@ static inline int get_task_cls_for_scene(struct task_struct *task)
 	return 0;
 }
 
+/*
+ * The margin used when comparing utilization with CPU capacity.
+ *
+ * (default: ~20%)
+ */
+#define fits_capacity(cap, max)	((cap) * 1280 < (max) * 1024)
+
+#ifdef CONFIG_UCLAMP_TASK
+static inline unsigned long uclamp_task_util(struct task_struct *p)
+{
+	return clamp(oplus_task_util(p),
+		     uclamp_eff_value(p, UCLAMP_MIN),
+		     uclamp_eff_value(p, UCLAMP_MAX));
+}
+#else
+static inline unsigned long uclamp_task_util(struct task_struct *p)
+{
+	return oplus_task_util(p);
+}
+#endif
+
+static inline bool task_fits_capacity(struct task_struct *p, long capacity)
+{
+	return fits_capacity(uclamp_task_util(p), capacity);
+}
+
+static inline bool task_fits_max(struct task_struct *p, int dst_cpu)
+{
+	unsigned long capacity = 0;
+
+#ifdef CONFIG_OPLUS_SYSTEM_KERNEL_QCOM
+	capacity = capacity_orig_of(dst_cpu);
+#else
+	struct rq *rq = cpu_rq(dst_cpu);
+	capacity = rq->cpu_capacity;
+#endif
+
+	return task_fits_capacity(p, capacity);
+}
+
+/* Todo:  @bug:7901603 This function needs to be put into is_ux_task_prefer_cpu_for_scene */
+#ifdef CONFIG_ARCH_MEDIATEK
+static inline bool ux_eas_skip_little_cluster(struct task_struct *p, int dst_cpu)
+{
+	int cls_id = topology_cluster_id(dst_cpu);
+	int prefer_cls_id = get_task_cls_for_scene(p);
+
+	if (cls_id == 0 && prefer_cls_id == 0)
+		return task_fits_max(p, dst_cpu);
+
+	return true;
+}
+#endif
+
 static inline bool is_ux_task_prefer_cpu_for_scene(struct task_struct *task, unsigned int cpu)
 {
 	struct ux_sched_cputopo ux_cputopo = ux_sched_cputopo;
@@ -184,32 +238,6 @@ static inline bool strict_ux_task(struct task_struct *task)
 		&& (task->tgid == save_top_app_tgid);
 }
 
-/*
- * The margin used when comparing utilization with CPU capacity.
- *
- * (default: ~20%)
- */
-#define fits_capacity(cap, max)	((cap) * 1280 < (max) * 1024)
-
-#ifdef CONFIG_UCLAMP_TASK
-static inline unsigned long uclamp_task_util(struct task_struct *p)
-{
-	return clamp(oplus_task_util(p),
-		     uclamp_eff_value(p, UCLAMP_MIN),
-		     uclamp_eff_value(p, UCLAMP_MAX));
-}
-#else
-static inline unsigned long uclamp_task_util(struct task_struct *p)
-{
-	return oplus_task_util(p);
-}
-#endif
-
-int task_fits_capacity(struct task_struct *p, long capacity)
-{
-	return fits_capacity(uclamp_task_util(p), capacity);
-}
-
 int get_topology_cluster_id(int cpu)
 {
 #ifdef CONFIG_OPLUS_SYSTEM_KERNEL_QCOM
@@ -235,12 +263,10 @@ bool set_ux_task_to_prefer_cpu(struct task_struct *task, int *orig_target_cpu)
 	int start_cls = -1;
 	int cpu = 0;
 	int direction = -1;
-	int strict_cpu = -1, subopt_cpu = -1;
-	bool walk_next_cls = false;
+	int subopt_cpu = -1;
 	bool invalid_target = false;
 	int orig_cls_id = 0;
 	cpumask_t search_cpus = CPU_MASK_NONE;
-	unsigned long cpu_capacity = 0;
 
 	if (unlikely(!global_sched_assist_enabled))
 		return false;
@@ -260,14 +286,23 @@ bool set_ux_task_to_prefer_cpu(struct task_struct *task, int *orig_target_cpu)
 		orig_cls_id = get_topology_cluster_id(*orig_target_cpu);
 	}
 
+#ifdef CONFIG_ARCH_MEDIATEK
+	if (!invalid_target && !test_task_ux(orig_rq->curr)
+		&& !orq_has_ux_tasks(orig_orq) && !orig_rq->rt.rt_nr_running
+		&& is_ux_task_prefer_cpu_for_scene(task, *orig_target_cpu)
+		&& ux_eas_skip_little_cluster(task, *orig_target_cpu))
+#else
 	if (!invalid_target && !test_task_ux(orig_rq->curr)
 		&& !orq_has_ux_tasks(orig_orq) && !orig_rq->rt.rt_nr_running
 		&& is_ux_task_prefer_cpu_for_scene(task, *orig_target_cpu))
+#endif
 		return false;
 
 	start_cls = cls_nr = get_task_cls_for_scene(task);
-	/* Avoiding ux core selection can easily lead to small cores for tasks
-	 * that would otherwise be on large cores */
+	/*
+	 * Avoiding ux core selection can easily lead to small cores for tasks
+	 * that would otherwise be on large cores
+	 */
 	if (start_cls < orig_cls_id) {
 		start_cls = orig_cls_id;
 		cls_nr = orig_cls_id;
@@ -288,30 +323,15 @@ retry:
 		rq = cpu_rq(cpu);
 		orq = (struct oplus_rq *)rq->android_oem_data1;
 
-#ifdef CONFIG_OPLUS_SYSTEM_KERNEL_QCOM
-		cpu_capacity = capacity_orig_of(cpu);
-#else
-		cpu_capacity = rq->cpu_capacity;
-#endif
-
-		if (cls_nr == 0 && !task_fits_capacity(task, cpu_capacity))
+		if (cls_nr == 0 && !task_fits_max(task, cpu))
 			break;
 
-		if (strict_ux_task(task)) {
-			/*
-			 * If the thread running on the CPU being traversed is neither UX nor RT,
-			 * then it is the best one, otherwise it is an alternative CPU.
-			 */
-			if (oplus_rbtree_empty(&orq->ux_list)
-				&& !rt_rq_is_runnable(&rq->rt)) {
-				strict_cpu = cpu;
-				walk_next_cls = false;
-			} else {
-				subopt_cpu = cpu;
-				walk_next_cls = (direction == 1)
-					&& (cls_nr != ux_cputopo.cls_nr - 1);
-			}
-		}
+		/*
+		 * strict_ux case: The system runs on a heavy load picking no cpu,
+		 *  and prevent EAS picking a small core
+		 */
+		if (strict_ux_task(task) && (subopt_cpu == -1))
+			subopt_cpu = cpu;
 
 		/* If an ux thread running on this CPU, drop it! */
 		if (oplus_get_ux_state(rq->curr) & SCHED_ASSIST_UX_MASK)
@@ -320,8 +340,10 @@ retry:
 		if (orq_has_ux_tasks(orq))
 			continue;
 
-		if (rq->curr->prio < MAX_RT_PRIO)
+		if (rq->curr->prio < MAX_RT_PRIO) {
+			subopt_cpu = cpu;
 			continue;
+		}
 
 		/* If there are rt threads in runnable state on this CPU, drop it! */
 		if (rt_rq_is_runnable(&rq->rt))
@@ -337,16 +359,11 @@ retry:
 		}
 	}
 
-	if (strict_cpu != -1) {
-		trace_set_ux_task_to_prefer_cpu(task, "strict",
-						*orig_target_cpu, strict_cpu,
-						start_cls, cls_nr,
-						&search_cpus);
-		*orig_target_cpu = strict_cpu;
-		return true;
-	}
+	cls_nr = cls_nr + direction;
+	if (cls_nr > 0 && cls_nr < ux_cputopo.cls_nr)
+		goto retry;
 
-	if (!walk_next_cls && subopt_cpu != -1) {
+	if (subopt_cpu != -1) {
 		trace_set_ux_task_to_prefer_cpu(task, "subopt",
 						*orig_target_cpu, subopt_cpu,
 						start_cls, cls_nr,
@@ -354,10 +371,6 @@ retry:
 		*orig_target_cpu = subopt_cpu;
 		return true;
 	}
-
-	cls_nr = cls_nr + direction;
-	if (cls_nr > 0 && cls_nr < ux_cputopo.cls_nr)
-		goto retry;
 
 	return false;
 }
@@ -397,6 +410,7 @@ void oplus_replace_next_task_fair(struct rq *rq, struct task_struct **p, struct 
 
 	while ((node = rb_first_cached(&orq->ux_list)) != NULL) {
 		struct oplus_task_struct *ots = rb_entry(node, struct oplus_task_struct, ux_entry);
+
 		struct task_struct *temp = ots_to_ts(ots);
 		if (IS_ERR_OR_NULL(temp))
 			continue;

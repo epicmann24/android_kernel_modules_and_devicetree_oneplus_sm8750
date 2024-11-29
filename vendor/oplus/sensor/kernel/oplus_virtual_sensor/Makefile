@@ -28,12 +28,32 @@ subdir-ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/sensor/2.0/op
 subdir-ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/sensor/2.0/oplus_virtual_sensor/platform/sensor_event
 endif
 
+
 ifeq ($(CONFIG_OPLUS_VIRTUAL_SENSOR),m)
 subdir-ccflags-y += -D _USE_VIRTUAL_SENSOR_AS_MODULE
 obj-$(CONFIG_OPLUS_VIRTUAL_SENSOR) += virtual_sensor.o
+ifeq ($(CONFIG_OPLUS_FEATURE_LAY_DETECT), m)
+subdir-ccflags-y += -D CONFIG_OPLUS_FEATURE_LAY_DETECT
+endif
+ifeq ($(CONFIG_OPLUS_FEATURE_ELEVATOR_DETECT), m)
+subdir-ccflags-y += -D CONFIG_OPLUS_FEATURE_ELEVATOR_DETECT
+endif
+ifeq ($(CONFIG_OPLUS_FEATURE_ACTIVITY_RECOGNITION), m)
+subdir-ccflags-y += -D CONFIG_OPLUS_FEATURE_ACTIVITY_RECOGNITION
+endif
+ifeq ($(CONFIG_OPLUS_FEATURE_PHONE_PROX), m)
+subdir-ccflags-y += -D CONFIG_OPLUS_FEATURE_PHONE_PROX
+endif
+ifeq ($(CONFIG_OPLUS_FEATURE_GESTURE_PROX), m)
+subdir-ccflags-y += -D CONFIG_OPLUS_FEATURE_GESTURE_PROX
+endif
+ifeq ($(CONFIG_OPLUS_FEATURE_AMBIENTE_PROX), m)
+subdir-ccflags-y += -D CONFIG_OPLUS_FEATURE_AMBIENTE_PROX
+endif
 else
 obj-y += virtual_sensor.o
-endif
+endif # CONFIG_OPLUS_VIRTUAL_SENSOR end
+
 
 obj-y += platform/
 obj-y += sensors/

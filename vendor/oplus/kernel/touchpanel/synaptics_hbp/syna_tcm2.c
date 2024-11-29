@@ -431,6 +431,8 @@ static int syna_dev_set_gesture_type(struct syna_tcm *tcm, unsigned short value)
 {
 	int retval = 0;
 
+	LOGI("%s: %u\n", __func__, value);
+
 	/* Bit0 -- Double Tap, Bit13 -- Single Tap */
 	retval = syna_tcm_set_dynamic_config(tcm->tcm_dev,
 			DC_GESTURE_TYPE_ENABLE,
@@ -2389,7 +2391,14 @@ static void ts_panel_notifier_callback(enum panel_event_notifier_tag tag,
 	case DRM_PANEL_EVENT_BLANK_LP:
 		LOGI("received lp event\n");
 		if (!notification->notif_data.early_trigger) {
-			syna_dev_suspend(&tcm->pdev->dev);
+			if (tcm->speedup_resume_wq) {
+				flush_workqueue(tcm->speedup_resume_wq);        /*wait speedup_resume_wq done*/
+			}
+			syna_dev_early_suspend(&tcm->pdev->dev);
+			if (!tcm->fp_active) {
+				syna_dev_suspend(&tcm->pdev->dev);
+				tcm->fb_ready = 0;
+			}
 		}
 		break;
 	case DRM_PANEL_EVENT_FPS_CHANGE:

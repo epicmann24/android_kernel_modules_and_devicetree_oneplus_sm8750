@@ -1498,6 +1498,14 @@ static int kgsl_pwrctrl_probe_cx_gdsc(struct kgsl_device *device, struct platfor
 			return IS_ERR(cx_pd) ? PTR_ERR(cx_pd) : -EINVAL;
 		}
 		pwr->cx_pd = cx_pd;
+		
+		pwr->gmu_cx_pd = dev_pm_domain_attach_by_name(&pdev->dev, "gmu_cx");
+		if (IS_ERR_OR_NULL(pwr->gmu_cx_pd)) {
+			dev_err(device->dev,
+				"Failed to attach GMU cx power domain, falling back to cx pd\n");
+			/* Fallback to cx pd voting if gmu_cx pd is unavailable */
+			pwr->gmu_cx_pd = cx_pd;
+		}
 	} else {
 		struct regulator *cx_regulator = devm_regulator_get(&pdev->dev, "vddcx");
 
@@ -1551,13 +1559,18 @@ int kgsl_pwrctrl_probe_gdscs(struct kgsl_device *device, struct platform_device 
 		return ret;
 
 	ret = kgsl_pwrctrl_probe_gx_gdsc(device, pdev);
-	if (ret && pwr->gmu_cx_pd) {
-		dev_pm_domain_detach(pwr->cx_pd, false);
-		dev_pm_domain_detach(pwr->gmu_cx_pd, false);
-		pwr->cx_pd = NULL;
-		pwr->gmu_cx_pd = NULL;
-	}
+	if (!ret)
+		return ret;
 
+	/* Detach pm domains during failure */
+	if (pwr->gmu_cx_pd && (pwr->gmu_cx_pd != pwr->cx_pd))
+		dev_pm_domain_detach(pwr->gmu_cx_pd, false);
+
+	if (pwr->cx_pd)
+		dev_pm_domain_detach(pwr->cx_pd, false);
+	
+	pwr->gmu_cx_pd = NULL;
+	pwr->cx_pd = NULL;
 	return ret;
 }
 
@@ -2048,19 +2061,21 @@ void kgsl_pwrctrl_close(struct kgsl_device *device)
 		dev_pm_qos_remove_request(&pwr->sysfs_thermal_req);
 
 	pm_runtime_disable(&device->pdev->dev);
-
-	if (pwr->gmu_cx_pd) {
-		dev_pm_genpd_remove_notifier(pwr->cx_pd);
-		dev_pm_domain_detach(pwr->cx_pd, false);
+	
+	if (pwr->gmu_cx_pd && (pwr->gmu_cx_pd != pwr->cx_pd))
 		dev_pm_domain_detach(pwr->gmu_cx_pd, false);
-		pwr->cx_pd = NULL;
-		pwr->gmu_cx_pd = NULL;
+	
+	 if (pwr->cx_pd) {
+ 		dev_pm_genpd_remove_notifier(pwr->cx_pd);
+ 		dev_pm_domain_detach(pwr->cx_pd, false);
 	}
-
-	if (pwr->gx_pd) {
-		dev_pm_domain_detach(pwr->gx_pd, false);
-		pwr->gx_pd = NULL;
-	}
+	
+	if (pwr->gx_pd)
+ 		dev_pm_domain_detach(pwr->gx_pd, false);
+	
+	pwr->gmu_cx_pd = NULL;
+	pwr->cx_pd = NULL;
+	pwr->gx_pd = NULL;
 }
 
 void kgsl_idle_check(struct work_struct *work)

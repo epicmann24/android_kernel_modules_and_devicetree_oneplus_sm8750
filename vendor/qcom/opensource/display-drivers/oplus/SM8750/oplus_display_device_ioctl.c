@@ -461,6 +461,10 @@ int oplus_display_panel_get_serial_number(void *buf)
 	return ret;
 }
 
+#ifdef OPLUS_FEATURE_APDMR
+extern void sde_dump_evtlog_and_reg(void);
+#endif
+
 extern unsigned int oplus_display_log_type;
 int oplus_display_panel_set_qcom_loglevel(void *data)
 {
@@ -473,6 +477,12 @@ int oplus_display_panel_set_qcom_loglevel(void *data)
 	if (k_loginfo->enable) {
 		oplus_display_log_type |= OPLUS_DEBUG_LOG_DSI;
 		oplus_display_trace_enable |= OPLUS_DISPLAY_TRACE_ALL;
+#ifdef OPLUS_FEATURE_APDMR
+		if (is_project(23821) || is_project(23893)) {
+			OPLUS_DSI_INFO("on screenshot to dump evtlog and register\n");
+			sde_dump_evtlog_and_reg();
+		}
+#endif
 	} else {
 		oplus_display_log_type &= ~OPLUS_DEBUG_LOG_DSI;
 		oplus_display_trace_enable &= ~OPLUS_DISPLAY_TRACE_ALL;
@@ -1769,7 +1779,7 @@ int oplus_wait_for_vsync(struct dsi_panel *panel)
 		return -ENODEV;
 	}
 
-	if (panel->power_mode != SDE_MODE_DPMS_ON || !panel->panel_initialized) {
+	if (panel->power_mode == SDE_MODE_DPMS_OFF || !panel->panel_initialized) {
 		OPLUS_DSI_WARN("display panel in off status\n");
 		return -ENODEV;
 	}

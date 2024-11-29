@@ -1886,6 +1886,24 @@ static bool oplus_comm_is_discharging(struct oplus_chg_comm *chip)
 	return false;
 }
 
+static int oplus_comm_get_mmi_state(struct oplus_chg_comm *chip)
+{
+	int mmi_chg = 1;
+
+	if (!chip->chg_disable_votable)
+		chip->chg_disable_votable = find_votable("CHG_DISABLE");
+	if (!chip->chg_suspend_votable)
+		chip->chg_suspend_votable = find_votable("CHG_SUSPEND");
+
+	if (chip->chg_disable_votable)
+		mmi_chg = ((!(get_client_vote(chip->chg_disable_votable, MMI_CHG_VOTER) && !chip->wls_online)) &&
+		    (!get_client_vote(chip->chg_disable_votable, CHG_LIMIT_CHG_VOTER)));
+	if (chip->chg_suspend_votable)
+		mmi_chg = mmi_chg && (!get_client_vote(chip->chg_suspend_votable, CHG_LIMIT_CHG_VOTER));
+
+	return mmi_chg;
+}
+
 static void oplus_comm_check_battery_status(struct oplus_chg_comm *chip)
 {
 	int batt_status = POWER_SUPPLY_STATUS_NOT_CHARGING;
@@ -1895,12 +1913,7 @@ static void oplus_comm_check_battery_status(struct oplus_chg_comm *chip)
 	static unsigned long last_normal_jiffies = 0;
 	unsigned long jiffies_diff = 0;
 
-	if (!chip->chg_disable_votable)
-		chip->chg_disable_votable = find_votable("CHG_DISABLE");
-
-	if (chip->chg_disable_votable)
-		mmi_chg = !get_client_vote(chip->chg_disable_votable, MMI_CHG_VOTER);
-
+	mmi_chg = oplus_comm_get_mmi_state(chip);
 	if (!chip->authenticate || !chip->batt_exist) {
 		batt_status = POWER_SUPPLY_STATUS_NOT_CHARGING;
 		goto check_done;
@@ -2788,10 +2801,7 @@ static void oplus_comm_ui_soc_update(struct oplus_chg_comm *chip)
 	}
 
 	/* Here ui_soc is only allowed to drop to 1% as low as possible */
-	if (!chip->chg_disable_votable)
-		chip->chg_disable_votable = find_votable("CHG_DISABLE");
-	if (chip->chg_disable_votable)
-		mmi_chg = !get_client_vote(chip->chg_disable_votable, MMI_CHG_VOTER);
+	mmi_chg = oplus_comm_get_mmi_state(chip);
 	if (charging && mmi_chg) {
 		if (ui_soc < smooth_soc &&
 		    time_is_before_jiffies(soc_up_jiffies)) {
@@ -2907,11 +2917,7 @@ done:
 		    sid_to_adapter_chg_type(chip->vooc_sid) == CHARGER_TYPE_VOOC)
 			vooc_by_normalpath_chg = true;
 
-		if (!chip->chg_disable_votable)
-			chip->chg_disable_votable = find_votable("CHG_DISABLE");
-		if (chip->chg_disable_votable)
-			mmi_chg = !get_client_vote(chip->chg_disable_votable, MMI_CHG_VOTER);
-
+		mmi_chg = oplus_comm_get_mmi_state(chip);
 		if (!chip->batt_full && ui_soc == 100 && charging &&
 		    (chip->config.smooth_switch || chip->ffc_status == FFC_DEFAULT ||
 		    chip->config.hidden_soc_switch) &&
@@ -2939,7 +2945,7 @@ done:
 		schedule_delayed_work(&chip->ui_soc_update_work, update_delay);
 }
 
-void monitor_ui_soc_to_enable_chg_up_limit(struct oplus_chg_comm *chip);
+static void monitor_ui_soc_to_enable_chg_up_limit(struct oplus_chg_comm *chip, bool immediate_execut);
 static void oplus_comm_ui_soc_update_work(struct work_struct *work)
 {
 	struct delayed_work *dwork = to_delayed_work(work);
@@ -2947,7 +2953,7 @@ static void oplus_comm_ui_soc_update_work(struct work_struct *work)
 		struct oplus_chg_comm, ui_soc_update_work);
 
 	oplus_comm_ui_soc_update(chip);
-	monitor_ui_soc_to_enable_chg_up_limit(chip);
+	monitor_ui_soc_to_enable_chg_up_limit(chip, false);
 }
 
 #ifdef CONFIG_OPLUS_CHARGER_MTK
@@ -3209,19 +3215,28 @@ typedef struct {
 }chg_up_limit_info;
 static chg_up_limit_info chg_up_limit_data;
 
-int oplus_set_chg_up_limit(int charge_limit_enable, int charge_limit_value,
+int oplus_set_chg_up_limit(struct oplus_mms *topic, int charge_limit_enable, int charge_limit_value,
 	int is_force_set_charge_limit, int charge_limit_recharge_value, int callname)
 {
+	struct oplus_chg_comm *chip;
+
+	if (topic == NULL) {
+		chg_err("topic is NULL\n");
+		return -ENODEV;
+	}
+	chip = oplus_mms_get_drvdata(topic);
+
 	chg_up_limit_data.charge_limit_enable = charge_limit_enable;
 	chg_up_limit_data.charge_limit_value = charge_limit_value;
 	chg_up_limit_data.is_force_set_charge_limit = is_force_set_charge_limit;
 	chg_up_limit_data.charge_limit_recharge_value = charge_limit_recharge_value;
 	chg_up_limit_data.callname = callname;
 
+	monitor_ui_soc_to_enable_chg_up_limit(chip, true);
 	return 1;
 }
 
-int oplus_enforce_chg_up_limit_result(struct oplus_chg_comm *chip, bool cut_off_charge)
+static int oplus_enforce_chg_up_limit_result(struct oplus_chg_comm *chip, bool cut_off_charge)
 {
 	int val = cut_off_charge;
 	int rc = 0;
@@ -3284,7 +3299,7 @@ int oplus_enforce_chg_up_limit_result(struct oplus_chg_comm *chip, bool cut_off_
 }
 
 #define CHG_UP_DELAY_COUNT		3
-void monitor_ui_soc_to_enable_chg_up_limit(struct oplus_chg_comm *chip)
+static void monitor_ui_soc_to_enable_chg_up_limit(struct oplus_chg_comm *chip, bool immediate_execut)
 {
 	static int over_count = 0;
 	static unsigned long last_jiffies = 0;
@@ -3303,7 +3318,7 @@ void monitor_ui_soc_to_enable_chg_up_limit(struct oplus_chg_comm *chip)
 
 	jiffies_diff = jiffies > last_jiffies ? jiffies - last_jiffies : last_jiffies - jiffies;
 	chg_debug("jiffies_diff %ld %ld %ld", jiffies_diff, jiffies, last_jiffies);
-	if (jiffies_diff < msecs_to_jiffies(1000))
+	if (jiffies_diff < msecs_to_jiffies(1000) && (immediate_execut == false))
 		return;
 
 	last_jiffies = jiffies;

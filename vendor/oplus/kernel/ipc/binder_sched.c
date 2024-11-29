@@ -48,6 +48,7 @@ static int max_works_in_fg = MAX_WORKS_IN_FGLIST;
 static atomic64_t binder_work_seq;
 static int fg_debug_pid = FG_DEBUG_DEFAULT_SYSTEM_SERVER;
 static int fg_debug_interval = FG_DEBUG_INTERVAL_DEFAULT;
+int fg_list_dynamic_enable = 1;
 
 static int binder_ux_test_debug(void);
 
@@ -481,7 +482,7 @@ static inline long long get_work_seq(struct binder_work *w)
 static inline void android_vh_binder_list_add_work_handler(void *unused,
 	struct binder_work *w, struct list_head *target_list)
 {
-	if (unlikely(!g_sched_enable) || !fg_list_enable || IS_ERR_OR_NULL(w)) {
+	if (!fg_list_enable || IS_ERR_OR_NULL(w)) {
 		return;
 	}
 	set_work_seq(w);
@@ -1258,7 +1259,8 @@ static inline bool enqueue_work_to_fg_todo_list(struct binder_transaction *t,
 	struct list_head *fg_todo = NULL;
 
 	/* called by binder_proc_transaction() when no binder_thread selected */
-	if (!fg_list_enable || !sync || !t || !proc || !w || IS_ERR_OR_NULL(obp)) {
+	if (!fg_list_enable || !fg_list_dynamic_enable || !sync || !t || !proc
+		   || !w || IS_ERR_OR_NULL(obp)) {
 		return false;
 	}
 
@@ -2021,7 +2023,6 @@ static void android_vh_binder_proc_transaction_finish_handler(void *unused, stru
 		} else if (last_thread) {
 			last_task = last_thread->task;
 			binder_set_inherit_ux(last_task, current, sync, false, t, proc);
-			wake_up_interruptible(&last_thread->wait);
 		} else {
 			binder_set_inherit_ux(binder_th_task, current, sync, false, t, proc);
 		}

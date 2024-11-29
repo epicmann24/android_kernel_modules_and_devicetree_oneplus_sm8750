@@ -1900,6 +1900,8 @@ static int oplus_chg_vb_aicl_enable(struct oplus_chg_ic_dev *ic_dev, bool en)
 
 static int oplus_chg_vb_aicl_rerun(struct oplus_chg_ic_dev *ic_dev)
 {
+	struct oplus_virtual_buck_ic *vb;
+	int i;
 	int rc = 0;
 
 	if (ic_dev == NULL) {
@@ -1907,7 +1909,18 @@ static int oplus_chg_vb_aicl_rerun(struct oplus_chg_ic_dev *ic_dev)
 		return -ENODEV;
 	}
 
-	/* TODO */
+	vb = oplus_chg_ic_get_drvdata(ic_dev);
+	for (i = 0; i < vb->child_num; i++) {
+		if (!func_is_support(&vb->child_list[i], OPLUS_IC_FUNC_BUCK_AICL_RERUN)) {
+			rc = -ENOTSUPP;
+			continue;
+		}
+		rc = oplus_chg_ic_func(vb->child_list[i].ic_dev, OPLUS_IC_FUNC_BUCK_AICL_RERUN);
+		if (rc < 0)
+			chg_err("child ic[%d] rerun aicl error, rc=%d\n", i, rc);
+		else
+			return 0;
+	}
 
 	return rc;
 }

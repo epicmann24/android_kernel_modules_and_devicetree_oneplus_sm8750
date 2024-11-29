@@ -1694,14 +1694,6 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 	for_each_old_crtc_in_state(old_state, crtc, old_crtc_state, i)
 		_sde_kms_release_splash_resource(sde_kms, crtc);
 
-#ifdef OPLUS_FEATURE_DISPLAY_ADFR
-	for_each_old_connector_in_state(old_state, connector,
-			old_conn_state, i) {
-		oplus_adfr_frame_done_te_source_vsync_switch(connector);
-		oplus_adfr_frame_done_mux_vsync_switch(connector);
-	}
-#endif /* OPLUS_FEATURE_DISPLAY_ADFR */
-
 	SDE_EVT32_VERBOSE(SDE_EVTLOG_FUNC_EXIT);
 	SDE_ATRACE_END("sde_kms_complete_commit");
 }

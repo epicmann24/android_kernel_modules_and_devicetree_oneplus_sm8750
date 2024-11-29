@@ -17,6 +17,10 @@
 #include <linux/workqueue.h>
 #include <linux/nvmem-consumer.h>
 #include <linux/slab.h>
+#ifdef OPLUS_ARCH_EXTENDS
+/* Add for ignore adsp ssr request when not boot up. case 07444056 */
+#include <linux/notifier.h>
+#endif /* OPLUS_ARCH_EXTENDS */
 #include <linux/remoteproc.h>
 #include <linux/remoteproc/qcom_rproc.h>
 
@@ -38,6 +42,26 @@ enum spf_subsys_state {
 	SPF_SUBSYS_LOADED,
 	SPF_SUBSYS_UNKNOWN,
 };
+
+#ifdef OPLUS_ARCH_EXTENDS
+/* Add for ignore adsp ssr request when not boot up. case 07444056 */
+enum adsp_rproc_state {
+	RPROC_ADSP_NULL,
+	RPROC_ADSP_SHUTDOWN_IN_PROGRESS,
+	RPROC_ADSP_SHUTDOWN_FINISH,
+	RPROC_ADSP_BOOT_IN_PROGRESS,
+	RPROC_ADSP_BOOT_UP,
+	RPROC_ADSP_MAX,
+};
+
+static char *rproc_state_string[RPROC_ADSP_MAX] = {
+	"default",
+	"shutdowning",
+	"down",
+	"booting",
+	"up",
+};
+#endif /* OPLUS_ARCH_EXTENDS */
 
 #ifdef OPLUS_ARCH_EXTENDS
 /* Add for limit ssr */
@@ -78,6 +102,10 @@ static struct work_struct adsp_ldr_work;
 static struct platform_device *adsp_private;
 static void adsp_loader_unload(struct platform_device *pdev);
 
+#ifdef OPLUS_ARCH_EXTENDS
+/* Add for ignore adsp ssr request when not boot up. case 07444056 */
+static enum adsp_rproc_state rproc_state = RPROC_ADSP_NULL;
+#endif /* OPLUS_ARCH_EXTENDS */
 
 static void adsp_load_fw(struct work_struct *adsp_ldr_work)
 {
@@ -265,6 +293,17 @@ static ssize_t adsp_ssr_store(struct kobject *kobj,
 #endif /* OPLUS_ARCH_EXTENDS */
 
 	dev_err(&pdev->dev, "requesting for ADSP restart\n");
+#ifdef OPLUS_ARCH_EXTENDS
+/* Add for ignore adsp ssr request when not boot up. case 07444056 */
+	if ((rproc_state != RPROC_ADSP_BOOT_UP) && (rproc_state != RPROC_ADSP_NULL)) {
+		dev_err(&pdev->dev, "adsp state alrady changed[%s], ignore this request\n", rproc_state_string[rproc_state]);
+#ifdef OPLUS_ARCH_EXTENDS
+/* Add mutex for ssr */
+		mutex_unlock(&oplus_ssr_lock);
+#endif /* OPLUS_ARCH_EXTENDS */
+		return count;
+	}
+#endif /* OPLUS_ARCH_EXTENDS */
 
 #ifdef OPLUS_ARCH_EXTENDS
 /* Add for limit ssr */
@@ -322,6 +361,11 @@ bool oplus_daemon_adsp_ssr(void)
 	}
 
 	dev_err(&pdev->dev, "%s: requesting for ADSP restart\n", __func__);
+	if ((rproc_state != RPROC_ADSP_BOOT_UP) && (rproc_state != RPROC_ADSP_NULL)) {
+		dev_err(&pdev->dev, "%s: adsp state alrady changed[%s], ignore this request\n",
+			__func__, rproc_state_string[rproc_state]);
+		goto exit;
+	}
 
 	ssr_time = ktime_get();
 	/* Add for always load adsp image when ssr is triggered */
@@ -460,6 +504,40 @@ static int adsp_loader_remove(struct platform_device *pdev)
 
 	return 0;
 }
+
+#ifdef OPLUS_ARCH_EXTENDS
+/* Add for ignore adsp ssr request when not boot up. case 07444056 */
+static int audio_notifier_ssr_adsp_cb(struct notifier_block *this,
+				unsigned long opcode, void *data)
+{
+	switch (opcode) {
+	case QCOM_SSR_BEFORE_SHUTDOWN:
+		rproc_state = RPROC_ADSP_SHUTDOWN_IN_PROGRESS;
+		break;
+	case QCOM_SSR_AFTER_SHUTDOWN:
+		rproc_state = RPROC_ADSP_SHUTDOWN_FINISH;
+		break;
+	case QCOM_SSR_BEFORE_POWERUP:
+		rproc_state = RPROC_ADSP_BOOT_IN_PROGRESS;
+		break;
+	case QCOM_SSR_AFTER_POWERUP:
+		rproc_state = RPROC_ADSP_BOOT_UP;
+		break;
+	default:
+		rproc_state = RPROC_ADSP_NULL;
+		break;
+	}
+
+	pr_info("[%s]: opcode[%lu] rproc_state:%s\n", __func__, opcode, rproc_state_string[rproc_state]);
+
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block adsp_ssr_nb = {
+	.notifier_call  = audio_notifier_ssr_adsp_cb,
+	.priority = 0,
+};
+#endif /* OPLUS_ARCH_EXTENDS */
 
 static int adsp_loader_probe(struct platform_device *pdev)
 {
@@ -619,6 +697,10 @@ static int adsp_loader_probe(struct platform_device *pdev)
 		}
 	}
 wqueue:
+#ifdef OPLUS_ARCH_EXTENDS
+/* Add for ignore adsp ssr request when not boot up. case 07444056 */
+	qcom_register_ssr_notifier("lpass", &adsp_ssr_nb);
+#endif /* OPLUS_ARCH_EXTENDS */
 	INIT_WORK(&adsp_ldr_work, adsp_load_fw);
 	if (adsp_fw_bit_values)
 		devm_kfree(&pdev->dev, adsp_fw_bit_values);

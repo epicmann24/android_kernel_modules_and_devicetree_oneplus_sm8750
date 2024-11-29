@@ -2732,10 +2732,6 @@ int oplus_ofp_aod_off_handle(void *dsi_display)
 		}
 	}
 
-#ifdef OPLUS_FEATURE_DISPLAY_ADFR
-	oplus_adfr_aod_fod_mux_vsync_switch(display->panel, false);
-#endif /* OPLUS_FEATURE_DISPLAY_ADFR */
-
 	rc = dsi_panel_set_nolp(display->panel);
 	if (rc) {
 		OFP_ERR("[%s] failed to send DSI_CMD_SET_NOLP cmds, rc=%d\n", display->name, rc);
@@ -2848,11 +2844,6 @@ int oplus_ofp_power_mode_handle(void *dsi_display, int power_mode)
 				OPLUS_OFP_TRACE_INT("oplus_ofp_aod_unlocking", p_oplus_ofp_params->aod_unlocking);
 			}
 
-#ifdef OPLUS_FEATURE_DISPLAY_ADFR
-			oplus_adfr_aod_fod_te_source_vsync_switch(display, OPLUS_ADFR_TE_SOURCE_TE);
-			oplus_adfr_aod_fod_mux_vsync_switch(display->panel, true);
-#endif /* OPLUS_FEATURE_DISPLAY_ADFR */
-
 			refresh_rate = display->panel->cur_mode->timing.refresh_rate;
 			if (!oplus_ofp_video_mode_aod_fod_is_enabled()
 					|| (oplus_ofp_video_mode_aod_fod_is_enabled() && (refresh_rate == 30))) {
@@ -2902,10 +2893,6 @@ int oplus_ofp_power_mode_handle(void *dsi_display, int power_mode)
 				OFP_ERR("[%s] failed to handle aod off, rc=%d\n", display->name, rc);
 			}
 		}
-
-#ifdef OPLUS_FEATURE_DISPLAY_ADFR
-		oplus_adfr_aod_fod_te_source_vsync_switch(display, OPLUS_ADFR_TE_SOURCE_TP);
-#endif /* OPLUS_FEATURE_DISPLAY_ADFR */
 		break;
 
 	case SDE_MODE_DPMS_OFF:

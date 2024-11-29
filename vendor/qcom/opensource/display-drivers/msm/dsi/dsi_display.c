@@ -7111,6 +7111,8 @@ int dsi_display_get_info(struct drm_connector *connector,
 	info->poms_align_vsync = display->panel->poms_align_vsync;
 	info->is_te_using_watchdog_timer = is_sim_panel(display);
 	info->event_notification_disabled = display->panel->event_notification_disabled;
+	info->disable_cesta_hw_sleep = display->panel->disable_cesta_hw_sleep;
+	info->level_te = display->panel->qsync_caps.level_te;
 
 	switch (display->panel->panel_mode) {
 	case DSI_OP_VIDEO_MODE:
@@ -7455,16 +7457,6 @@ int dsi_display_get_modes_helper(struct dsi_display *display,
 			topology_override = display->cmdline_topology;
 			is_preferred = true;
 		}
-
-#ifdef OPLUS_FEATURE_DISPLAY_ADFR
-		/* qcom patch for two te source */
-		if (display_mode.vsync_source < 0 || display_mode.vsync_source > 15) {
-			display_mode.vsync_source = display->te_source;
-			oplus_adfr_te_source_vsync_switch_get_modes_helper(display, &display_mode);
-			DSI_ERR("[%s] vsync source invalid, use default source %d\n",
-				display->name, display_mode.vsync_source);
-		}
-#endif /* OPLUS_FEATURE_DISPLAY_ADFR */
 
 		support_cmd_mode = display_mode.panel_mode_caps & DSI_OP_CMD_MODE;
 		support_video_mode = display_mode.panel_mode_caps & DSI_OP_VIDEO_MODE;
@@ -9405,10 +9397,6 @@ int dsi_display_enable(struct dsi_display *display)
 	}
 
 	if (mode->dsi_mode_flags & DSI_MODE_FLAG_DMS) {
-#ifdef OPLUS_FEATURE_DISPLAY_ADFR
-		oplus_adfr_fakeframe_status_update(display->panel, true);
-		oplus_adfr_timing_mux_vsync_switch(display);
-#endif /* OPLUS_FEATURE_DISPLAY_ADFR */
 		rc = dsi_panel_switch(display->panel);
 		if (rc)
 			DSI_ERR("[%s] failed to switch DSI panel mode, rc=%d\n",

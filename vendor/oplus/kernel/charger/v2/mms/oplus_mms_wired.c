@@ -1090,9 +1090,7 @@ int oplus_wired_aicl_rerun(void)
 	}
 
 	rc = oplus_chg_ic_func(chip->buck_ic, OPLUS_IC_FUNC_BUCK_AICL_RERUN);
-	if (rc < 0)
-		chg_err("can't rerun aicl, rc=%d\n", rc);
-	chg_info("rerun aicl\n");
+	chg_info("rerun aicl, rc = %d\n", rc);
 
 	return rc;
 }

@@ -1450,6 +1450,24 @@ static void _sde_dump_array(bool do_panic, const char *name, bool dump_secure, u
 	mutex_unlock(&dbg_base->mutex);
 }
 
+#ifdef OPLUS_FEATURE_APDMR
+void sde_dump_evtlog_and_reg(void)
+{
+	u32 old_dump_option = sde_dbg_base.dump_option;
+	u32 old_enable = sde_dbg_base.evtlog->enable;
+	u32 old_dump_mode = sde_dbg_base.evtlog->dump_mode;
+
+	sde_dbg_base.dump_option = SDE_DBG_DUMP_IN_LOG;
+	sde_dbg_base.evtlog->enable = SDE_EVTLOG_ALWAYS;
+	sde_dbg_base.evtlog->dump_mode = SDE_DBG_DUMP_IN_LOG;
+	_sde_dump_array(false, "sde", false, SDE_DBG_SDE);
+
+	sde_dbg_base.dump_option = old_dump_option;
+	sde_dbg_base.evtlog->enable = old_enable;
+	sde_dbg_base.evtlog->dump_mode = old_dump_mode;
+}
+#endif
+
 #ifdef CONFIG_DEV_COREDUMP
 #define MAX_BUFF_SIZE ((3072 - 256) * 1024)
 

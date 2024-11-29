@@ -122,6 +122,7 @@ struct chip_mt6375_gauge{
 	struct file_operations *authenticate_ops;
 
 	struct delayed_work check_iic_recover;
+	int gauge_type;
 };
 
 enum {

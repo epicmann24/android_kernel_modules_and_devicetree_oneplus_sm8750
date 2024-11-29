@@ -46,6 +46,8 @@
 #include <linux/soc/qcom/smem.h>
 #endif
 
+static bool vterm_unsmooth = true;
+module_param(vterm_unsmooth, bool, 0644);
 
 #define GAUGE_PARALLEL_IC_NUM_MIN 2
 static bool is_support_parallel(struct oplus_mms_gauge *chip)
@@ -450,7 +452,7 @@ void oplus_gauge_get_ddrc_status(struct oplus_mms *mms)
 
 	if (current_volt != vterm) {
 		last_cc = oplus_gauge_get_last_cc(chip);
-		if (last_cc <= 0 || chip->deep_spec.config.step_status || *cc < last_cc) {
+		if (vterm_unsmooth || last_cc <= 0 || chip->deep_spec.config.step_status || *cc < last_cc) {
 			update_vterm = vterm;
 			update_vshut = vshut;
 			oplus_gauge_set_last_cc(chip, *cc);

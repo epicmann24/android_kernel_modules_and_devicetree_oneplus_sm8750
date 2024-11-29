@@ -561,10 +561,6 @@ static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
 		return false;
 	}
 
-#ifdef OPLUS_FEATURE_DISPLAY_ADFR
-	oplus_adfr_te_source_vsync_switch_mode_fixup(display, &dsi_mode, panel_dsi_mode);
-#endif /* OPLUS_FEATURE_DISPLAY_ADFR */
-
 	rc = dsi_display_validate_mode(c_bridge->display, &dsi_mode,
 			DSI_VALIDATE_FLAG_ALLOW_ADJUST);
 	if (rc) {

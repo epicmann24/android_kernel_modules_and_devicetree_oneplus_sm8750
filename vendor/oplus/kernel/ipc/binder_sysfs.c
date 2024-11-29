@@ -331,7 +331,7 @@ static ssize_t proc_fg_list_enable_write(struct file *file, const char __user *b
 	if (err)
 		return err;
 
-	fg_list_enable = val;
+	fg_list_dynamic_enable = val;
 
 	return count;
 }
@@ -342,7 +342,7 @@ static ssize_t proc_fg_list_enable_read(struct file *file, char __user *buf,
 	char buffer[20];
 	size_t len = 0;
 
-	len = snprintf(buffer, sizeof(buffer), "%d\n", fg_list_enable);
+	len = snprintf(buffer, sizeof(buffer), "%d\n", fg_list_dynamic_enable);
 
 	return simple_read_from_buffer(buf, count, ppos, buffer, len);
 }

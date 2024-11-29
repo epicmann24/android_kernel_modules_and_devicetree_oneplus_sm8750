@@ -2411,32 +2411,11 @@ bool set_frame_group_task_to_perfer_cpu(struct task_struct *p, int *target_cpu)
 		if ((grp->id != INPUTMETHOD_FRAME_GROUP_ID) && !is_multi_frame_fbg(grp->id))
 			return false;
 
-		if (!group_task_fits_cluster_cpus(p, grp->preferred_cluster))
+		if (grp->preferred_cluster == NULL)
 			return false;
 
 		cluster = grp->preferred_cluster;
 	}
-
-	if (!ots->fbg_state)
-		return false;
-
-	grp = task_get_frame_group(ots);
-	if (grp == NULL)
-		return false;
-
-	if ((grp->id != INPUTMETHOD_FRAME_GROUP_ID) &&
-			!is_multi_frame_fbg(grp->id))
-		return false;
-
-	if (grp->preferred_cluster == NULL)
-		return false;
-
-	cluster = grp->preferred_cluster;
-
-	/* Note that *target_cpu maybe invalid */
-	if ((*target_cpu > 0) && (*target_cpu < num_possible_cpus()) &&
-			cpumask_test_cpu(*target_cpu, &cluster->cpus))
-		return false;
 
 retry:
 	cpumask_and(&search_cpus, p->cpus_ptr, cpu_active_mask);

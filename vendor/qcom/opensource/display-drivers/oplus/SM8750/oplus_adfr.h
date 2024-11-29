@@ -46,27 +46,6 @@ enum oplus_adfr_auto_mode {
 	OPLUS_ADFR_AUTO_IDLE = 2,						/* min fps value is sw fps if auto idle is set */
 };
 
-enum oplus_adfr_fakeframe_mode {
-	OPLUS_ADFR_FAKEFRAME_OFF = 0,
-	OPLUS_ADFR_FAKEFRAME_ON = 1,
-};
-
-enum oplus_adfr_vsync_switch_mode {
-	OPLUS_ADFR_TE_SOURCE_VSYNC_SWITCH = 0,			/* use two dsi te of ap to do vsync switch */
-	OPLUS_ADFR_MUX_VSYNC_SWITCH = 8,				/* use external mux ic to do vsync switch */
-	OPLUS_ADFR_INVALID_VSYNC_SWITCH,				/* invalid vsync switch */
-};
-
-enum oplus_adfr_te_source {
-	OPLUS_ADFR_TE_SOURCE_TP = 0,					/* TE0 */
-	OPLUS_ADFR_TE_SOURCE_TE = 1,					/* TE1 */
-};
-
-enum oplus_adfr_mux_vsync_switch_level {
-	OPLUS_ADFR_MUX_VSYNC_SWITCH_TP = 0,				/* TP VSYNC */
-	OPLUS_ADFR_MUX_VSYNC_SWITCH_TE = 1,				/* TE VSYNC */
-};
-
 enum oplus_adfr_idle_mode {
 	OPLUS_ADFR_IDLE_OFF = 0,						/* exit mipi idle */
 	OPLUS_ADFR_IDLE_ON = 1,							/* enter mipi idle */
@@ -135,9 +114,6 @@ struct oplus_adfr_test_te_params {
 struct oplus_adfr_params {
 	unsigned int config;							/*
 													 bit(0):global
-													 bit(1):fakeframe
-													 bit(2):vsync switch
-													 bit(3):vsync switch mode, 0:OPLUS_ADFR_TE_SOURCE_VSYNC_SWITCH, 1:OPLUS_ADFR_MUX_VSYNC_SWITCH
 													 bit(4):idle mode
 													 bit(5):temperature detection
 													 bit(6):oa bl mutual exclusion
@@ -152,15 +128,8 @@ struct oplus_adfr_params {
 	bool sa_min_fps_updated;						/* indicates whether sa min fps is updated or not */
 	bool skip_min_fps_setting;						/* indicates whether min fps setting should be skipped or not */
 	unsigned int sw_fps;							/* software vsync value */
-	unsigned int fakeframe;							/* indicates whether fakeframe is enabled or not */
-	bool fakeframe_updated;							/* indicates whether fakeframe is updated or not */
-	bool need_send_fakeframe_cmd;					/* indicates whether fakeframe cmd should be sent before te or not */
 	struct pinctrl_state *te1_active;				/* a pinctrl state used to control te1 active */
 	struct pinctrl_state *te1_suspend;				/* a pinctrl state used to control te1 suspend */
-	int mux_vsync_switch_gpio;						/* a gpio used to switch input vsync signal by mux ic */
-	unsigned int mux_vsync_switch_gpio_level;		/* a value used to indicates current mux vsync switch gpio level */
-	bool force_te_vsync;							/* indicates whether te vsync is forced to set or not */
-	bool need_switch_vsync;							/* indicates whether vsync signal needs to be switched or not */
 	unsigned int idle_mode;							/* a value used to indicates current mipi idle status */
 	struct oplus_adfr_test_te_params test_te;		/* a structure used to store current test te params */
 	unsigned int osync_min_fps;						/* the minimum self-refresh rate when no image would be sent to ddic in osync mode */
@@ -245,8 +214,6 @@ extern unsigned int oplus_display_trace_enable;
 int oplus_adfr_update_display_id(void);
 int oplus_adfr_init(void *dsi_panel);
 bool oplus_adfr_is_supported(void *oplus_adfr_params);
-bool oplus_adfr_vsync_switch_is_enabled(void *oplus_adfr_params);
-enum oplus_adfr_vsync_switch_mode oplus_adfr_get_vsync_switch_mode(void *oplus_adfr_params);
 bool oplus_adfr_oa_bl_mutual_exclusion_is_enabled(void *oplus_adfr_params);
 
 /* -------------------- standard adfr -------------------- */
@@ -263,29 +230,8 @@ int oplus_adfr_status_reset(void *dsi_panel);
 int oplus_adfr_high_precision_handle(void *sde_enc_v);
 int oplus_adfr_get_panel_high_precision_state(void *dsi_display);
 
-/* -------------------- fakeframe -------------------- */
-int oplus_adfr_fakeframe_check(void *sde_encoder_virt);
-int oplus_adfr_fakeframe_handle(void *sde_encoder_virt);
-int oplus_adfr_fakeframe_status_update(void *dsi_panel, bool force_disable);
-
 /* -------------------- pre switch -------------------- */
 int oplus_adfr_pre_switch_send(void *dsi_panel);
-
-/* -------------------- vsync switch -------------------- */
-/* ----- te source vsync switch ----- */
-int oplus_adfr_te_source_vsync_switch_mode_fixup(void *dsi_display, void *dsi_display_mode_0, void *dsi_display_mode_1);
-int oplus_adfr_te_source_vsync_switch_get_modes_helper(void *dsi_display, void *dsi_display_mode);
-int oplus_adfr_te_source_vsync_switch_pinctrl_init(void *dsi_panel);
-int oplus_adfr_te_source_vsync_switch_set_pinctrl_state(void *dsi_panel, bool enable);
-int oplus_adfr_timing_te_source_vsync_switch(void *dsi_panel);
-int oplus_adfr_frame_done_te_source_vsync_switch(void *drm_connector);
-int oplus_adfr_aod_fod_te_source_vsync_switch(void *dsi_display, unsigned int te_source);
-/* ----- mux vsync switch ----- */
-int oplus_adfr_gpio_release(void *dsi_panel);
-int oplus_adfr_timing_mux_vsync_switch(void *dsi_display);
-int oplus_adfr_resolution_mux_vsync_switch(void *dsi_panel);
-int oplus_adfr_frame_done_mux_vsync_switch(void *drm_connector);
-int oplus_adfr_aod_fod_mux_vsync_switch(void *dsi_panel, bool force_te_vsync);
 
 /* -------------------- idle mode -------------------- */
 int oplus_adfr_idle_mode_handle(void *sde_encoder_virt, bool enter_idle);
@@ -318,11 +264,6 @@ int oplus_adfr_resend_osync_cmd(void *dsi_display);
 ssize_t oplus_adfr_set_config_attr(struct kobject *obj,
 	struct kobj_attribute *attr, const char *buf, size_t count);
 ssize_t oplus_adfr_get_config_attr(struct kobject *obj,
-	struct kobj_attribute *attr, char *buf);
-/* mux_vsync_switch */
-ssize_t oplus_adfr_set_mux_vsync_switch_attr(struct kobject *obj,
-	struct kobj_attribute *attr, const char *buf, size_t count);
-ssize_t oplus_adfr_get_mux_vsync_switch_attr(struct kobject *obj,
 	struct kobj_attribute *attr, char *buf);
 /* test te */
 int oplus_adfr_set_test_te(void *buf);

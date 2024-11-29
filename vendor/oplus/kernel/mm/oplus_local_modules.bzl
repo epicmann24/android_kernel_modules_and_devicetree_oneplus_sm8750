@@ -71,6 +71,9 @@ def define_oplus_local_modules():
             "zram_opt/zram_opt.c",
         ]),
         includes = ["."],
+        ko_deps = [
+            "//vendor/oplus/kernel/mm:oplus_bsp_hybridswap_zram",
+        ],
         local_defines = ["CONFIG_DYNAMIC_TUNING_SWAPPINESS", "CONFIG_OPLUS_BALANCE_ANON_FILE_RECLAIM", "CONFIG_HYBRIDSWAP_SWAPD"],
         copts = select({
             "//build/kernel/kleaf:kocov_is_true": ["-fprofile-arcs", "-ftest-coverage"],

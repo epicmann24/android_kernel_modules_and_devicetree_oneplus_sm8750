@@ -270,6 +270,7 @@ enum battery_property_id {
 	BATT_SET_UI_SOH,
 	BATT_SET_USED_FLAG,
 	BATT_DEEP_DISCHG_LAST_CC,
+	BATT_GET_UFCS_RUNNING_STATE,
 #endif
 	BATT_PROP_MAX,
 };
@@ -343,6 +344,7 @@ enum usb_property_id {
 	USB_OTG_BOOST_CURRENT,
 	USB_SNS_STATUS,
 	USB_SET_UFCS_SM_PERIOD,
+	USB_SET_RERUN_AICL,
 #endif /*OPLUS_FEATURE_CHG_BASIC*/
 	USB_PROP_MAX,
 };
@@ -583,6 +585,7 @@ struct battery_chg_dev {
 	struct oplus_mms		*ufcs_topic;
 	struct oplus_mms		*gauge_topic;
 	struct oplus_mms		*wls_topic;
+	struct oplus_mms		*err_topic;
 	struct votable			*chg_disable_votable;
 	struct mutex			chg_en_lock;
 	bool 				    chg_en;
@@ -609,6 +612,7 @@ struct battery_chg_dev {
 	struct work_struct		usb_type_work;
 #ifdef OPLUS_FEATURE_CHG_BASIC
 	int ccdetect_irq;
+	struct delayed_work	publish_close_cp_item_work;
 	struct delayed_work	suspend_check_work;
 	struct delayed_work	adsp_voocphy_status_work;
 	struct delayed_work	otg_init_work;
@@ -654,6 +658,7 @@ struct battery_chg_dev {
 	struct delayed_work 	pd_only_check_work;
 	bool					voocphy_err_check;
 	bool			bypass_vooc_support;
+	bool			ufcs_run_check_support;
 #endif
 #ifdef OPLUS_FEATURE_CHG_BASIC
 	int vchg_trig_irq;

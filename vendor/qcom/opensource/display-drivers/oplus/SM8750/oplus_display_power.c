@@ -411,10 +411,6 @@ int oplus_panel_gpio_release(struct dsi_panel *panel)
 	if (gpio_is_valid(gpio_cfg->pmic_gpio))
 		gpio_free(gpio_cfg->pmic_gpio);
 
-#ifdef OPLUS_FEATURE_DISPLAY_ADFR
-	oplus_adfr_gpio_release(panel);
-#endif /* OPLUS_FEATURE_DISPLAY_ADFR */
-
 	return 0;
 }
 
@@ -429,13 +425,6 @@ int oplus_panel_set_pinctrl_state(struct dsi_panel *panel, bool enable)
 	if (!panel->pinctrl.pinctrl)
 		return 0;
 
-#ifdef OPLUS_FEATURE_DISPLAY_ADFR
-	rc = oplus_adfr_te_source_vsync_switch_set_pinctrl_state(panel, enable);
-	if (rc) {
-		goto error;
-	}
-#endif /* OPLUS_FEATURE_DISPLAY_ADFR */
-
 	/* oplus panel pinctrl */
 	if (panel->oplus_panel.pinctrl_enabled) {
 		if (enable)
@@ -449,7 +438,6 @@ int oplus_panel_set_pinctrl_state(struct dsi_panel *panel, bool enable)
 					panel->oplus_panel.vendor_name, rc);
 	}
 
-error:
 	return rc;
 }
 
@@ -467,13 +455,6 @@ int oplus_panel_pinctrl_init(struct dsi_panel *panel)
 		OPLUS_DSI_ERR("failed to get pinctrl, rc=%d\n", rc);
 		goto error;
 	}
-
-#ifdef OPLUS_FEATURE_DISPLAY_ADFR
-	rc = oplus_adfr_te_source_vsync_switch_pinctrl_init(panel);
-	if (rc) {
-		goto error;
-	}
-#endif /* OPLUS_FEATURE_DISPLAY_ADFR */
 
 	/* oplus panel pinctrl */
 	count = of_property_count_strings(panel->panel_of_node,
