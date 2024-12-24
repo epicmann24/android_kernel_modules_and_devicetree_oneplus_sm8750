@@ -67,6 +67,7 @@
 #define UFCS_TEMP_OVER_COUNTS		2
 #define UFCS_TEMP_WARM_RANGE_THD	10
 #define UFCS_TEMP_LOW_RANGE_THD		10
+#define UFCS_COLD_TEMP_RANGE_THD	10
 
 #define UFCS_R_AVG_NUM			10
 #define UFCS_R_ROW_NUM			7
@@ -2228,6 +2229,7 @@ static int oplus_ufcs_charge_start(struct oplus_ufcs *chip)
 	int rc;
 	int target_vbus, update_size, req_vol;
 	int cp_vin, cp_vout;
+	const char temp_region[] = "temp_region";
 	int batt_num;
 	int sub_rc = 0;
 
@@ -2298,10 +2300,15 @@ static int oplus_ufcs_charge_start(struct oplus_ufcs *chip)
 				chg_err("can't get cp work status, rc=%d\n", rc);
 			} else {
 				if (work_start) {
+					rc = oplus_ufcs_temp_cur_range_init(chip);
+					if (rc < 0)
+						return rc;
+
 					if (chip->oplus_ufcs_adapter)
 						chip->strategy = chip->oplus_curve_strategy;
 					else
 						chip->strategy = chip->third_curve_strategy;
+					oplus_chg_strategy_set_process_data(chip->strategy, temp_region, chip->ufcs_temp_cur_range);
 					rc = oplus_chg_strategy_init(chip->strategy);
 					if (rc < 0) {
 						chg_err("strategy_init error, not support ufcs fast charge\n");
@@ -2323,9 +2330,6 @@ static int oplus_ufcs_charge_start(struct oplus_ufcs *chip)
 					if (rc < 0 || sub_rc < 0)
 						chg_err("lcf_strategy_init error, not support low curr full\n");
 
-					rc = oplus_ufcs_temp_cur_range_init(chip);
-					if (rc < 0)
-						return rc;
 
 					chip->start_retry_count = 0;
 					chip->startup_retry_times = 0;
@@ -5441,7 +5445,7 @@ static int oplus_ufcs_parse_charge_strategy(struct oplus_ufcs *chip)
 		chip->limits.ufcs_strategy_temp_num = 7;
 		chg_err("parse ufcs_charge_strategy_temp error, rc=%d\n", rc);
 	}
-	chip->limits.ufcs_batt_over_low_temp = rang_temp_tmp[0];
+	chip->limits.ufcs_batt_over_low_temp = rang_temp_tmp[0] - UFCS_COLD_TEMP_RANGE_THD;
 	chip->limits.ufcs_little_cold_temp = rang_temp_tmp[1];
 	chip->limits.ufcs_cool_temp = rang_temp_tmp[2];
 	chip->limits.ufcs_little_cool_temp = rang_temp_tmp[3];

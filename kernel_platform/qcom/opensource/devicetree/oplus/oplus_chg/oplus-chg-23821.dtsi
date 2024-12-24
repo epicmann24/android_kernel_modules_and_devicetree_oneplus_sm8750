@@ -43,6 +43,10 @@
 		oplus,adc_info_name = "855";
 		oplus,topic-update-interval = <5000>;
 
+		/* BSP.CHG.Basic, 2024/09/27, Add for:
+		High temperature long-term solution for Battery bulge from MTK*/
+		high-temp-scheme;
+
 		oplus,support_usbtemp_protect_v2;
 		oplus,support_wlsotg_non_coexistence;
 		oplus_spec,usbtemp_batt_temp_low = <50>;
@@ -264,6 +268,7 @@
 		oplus,smart_charging_screenoff;
 		oplus,chg_spec_version = <OPLUS_CHG_SPEC_VER_V3P7>;
 		oplus,eco_region_list = /bits/ 8 <0x44>;
+		oplus,common-charge-icl-support;
 
 		oplus-charger {
 			plat_pm8550_groups: oplus,plat_pm8550-groups {
@@ -600,8 +605,8 @@
 		oplus_spec,qc-iclmax-ma = <2000>;
 		oplus_spec,non-standard-ibatmax-ma = <500>;
 		oplus_spec,input-power-mw = <
-			2500		/* OPLUS_WIRED_CHG_MODE_UNKNOWN */
-			2500		/* OPLUS_WIRED_CHG_MODE_SDP */
+			2250		/* OPLUS_WIRED_CHG_MODE_UNKNOWN */
+			2250		/* OPLUS_WIRED_CHG_MODE_SDP */
 			7500		/* OPLUS_WIRED_CHG_MODE_CDP */
 			10000		/* OPLUS_WIRED_CHG_MODE_DCP */
 			15000		/* OPLUS_WIRED_CHG_MODE_VOOC */

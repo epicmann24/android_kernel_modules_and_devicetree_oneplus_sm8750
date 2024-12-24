@@ -48,11 +48,13 @@
 			timing@sa_fhd_60{
 				#include "dsi-panel-AB849-P-1-A0022-common.dtsi"
 				//qcom,mdss-mdp-transfer-time-us = <6000>;
+				#include "dsi-panel-AB849-P-1-A0022-loading-effect.dtsi"
 				cell-index = <0>;
 				qcom,mdss-dsi-panel-framerate = <60>;
 				qcom,mdss-dsi-panel-clockrate = <1113600000>;
 				qcom,mdss-dsi-panel-width = <1264>;
 				qcom,mdss-dsi-panel-height = <2780>;
+				qcom,dsi-mode-te-width-us = <290>;
 
 				qcom,mdss-dsi-h-front-porch = <64>;
 				qcom,mdss-dsi-h-back-porch = <50>;
@@ -83,7 +85,7 @@
 					39 00 00 40 00 00 03 60 00 09				/* 0x09 : 60Hz(1/18cyc) */
 					/* Insert Valid Freq.Setting */
 					39 00 00 40 00 00 04 B0 00 88 E4
-					39 00 00 40 00 00 05 E4 00 01 00 01
+					39 00 00 40 00 00 05 E4 00 03 00 03
 					/* HOP Auto Mode OFF */
 					39 00 00 40 00 00 04 B0 00 A9 E4
 					15 00 00 40 00 00 02 E4 00					/* 0x00: Auto Off , 0x01: Auto On */
@@ -170,7 +172,7 @@
 					39 00 00 40 00 00 03 60 00 09				/* 0x09 : 60Hz(1cyc) */
 					/* Insert Valid Freq.Setting */
 					39 00 00 40 00 00 04 B0 00 88 E4
-					39 00 00 40 00 00 05 E4 00 01 00 01
+					39 00 00 40 00 00 05 E4 00 03 00 03
 					/* HOP Auto Mode OFF */
 					39 00 00 40 00 00 04 B0 00 A9 E4
 					15 00 00 40 00 00 02 E4 00					/* 0x00: Auto Off , 0x01: Auto On */
@@ -193,6 +195,16 @@
 					39 00 00 40 00 00 04 B0 00 79 B3
 					15 00 00 40 00 00 02 B3 06
 					39 00 00 00 00 00 03 F0 A5 A5
+					/* Laoding On 110% */
+					39 00 00 40 00 00 03 F0 5A 5A
+					39 00 00 40 00 00 04 B0 00 02 C5
+					39 00 00 40 00 00 02 C5 27
+					39 00 00 40 00 00 04 B0 00 1B B1
+					39 00 00 40 00 00 0F B1 72 92 2B 6D 80 CE A5 D6 AB FF 10 00 00 01
+					39 00 00 40 00 00 04 B0 00 20 B1
+					39 00 00 40 00 00 05 B1 73 5C D6 AB
+					39 00 00 40 00 00 02 F7 0F
+					39 00 00 40 00 00 03 F0 A5 A5
 					/* Solve the problem of mirror display shadow */
 					39 00 00 40 00 00 03 F0 5A 5A
 					39 00 00 40 00 00 04 B0 00 4A E1
@@ -337,8 +349,8 @@
 					/* HOP Auto Mode OFF */
 					39 00 00 40 00 00 04 B0 00 B0 E4			/* Target Freq.Setting */
 					39 00 00 40 00 00 03 E4 00 01				/* BASE 120Hz(1CYC.) Low Freq. Setting, 0x00, 0x01 : 60Hz */
-					39 00 00 40 00 00 04 B0 00 68 E4
-					39 00 00 40 00 00 03 E4 22 22
+					39 00 00 40 00 00 04 B0 00 88 E4
+					39 00 00 40 00 00 05 E4 00 03 00 03			/* Insert Valid Freq.Setting */
 					39 00 00 40 00 00 04 B0 00 BA E4
 					39 00 00 40 00 00 11 E4 00 01 00 03 00 0B 00 0B 00 17 00 17 00 17 00 77	/* Step Delay Freq. 120-30-10-10-5-5-5-1 */
 					39 00 00 40 00 00 04 B0 00 A9 E4
@@ -361,8 +373,8 @@
 					/* HOP Auto Mode ON*/
 					39 00 00 40 00 00 04 B0 00 B0 E4			/* Target Freq.Setting */
 					39 00 00 40 00 00 03 E4 00 0B				/* BASE 120Hz(1CYC.) Low Freq. Setting, 0x00, 0x0B : 10Hz */
-					39 00 00 40 00 00 04 B0 00 68 E4
-					39 00 00 40 00 00 03 E4 22 22
+					39 00 00 40 00 00 04 B0 00 88 E4
+					39 00 00 40 00 00 05 E4 00 03 00 03			/* Insert Valid Freq.Setting */
 					39 00 00 40 00 00 04 B0 00 BA E4
 					39 00 00 40 00 00 11 E4 00 01 00 03 00 0B 00 0B 00 0B 00 0B 00 0B 00 0B	/* Step Delay Freq. 120-30-10-10-10-10-10-10 */
 					39 00 00 40 00 00 04 B0 00 A9 E4
@@ -371,7 +383,7 @@
 					39 00 00 40 00 00 04 B0 00 F4 E4
 					15 00 00 40 00 00 02 E4 00					/* 0x00: On , 0x22: Off */
 					39 00 00 40 00 00 04 B0 00 65 E4
-					39 00 00 40 00 00 06 E4 00 00 00 00 00
+					39 00 00 40 00 00 06 E4 22 22 22 22 22
 					15 00 00 40 00 00 02 F7 0F
 					/* Level 2/3 key Disable */
 					39 00 00 40 00 00 03 F0 A5 A5
@@ -385,8 +397,8 @@
 					/* HOP Auto Mode ON*/
 					39 00 00 40 00 00 04 B0 00 B0 E4			/* Target Freq.Setting */
 					39 00 00 40 00 00 03 E4 00 77				/* BASE 120Hz(1CYC.) Low Freq. Setting, 0x00, 0x77 : 1Hz */
-					39 00 00 40 00 00 04 B0 00 68 E4
-					39 00 00 40 00 00 03 E4 22 22
+					39 00 00 40 00 00 04 B0 00 88 E4
+					39 00 00 40 00 00 05 E4 00 03 00 03			/* Insert Valid Freq.Setting */
 					39 00 00 40 00 00 04 B0 00 BA E4
 					39 00 00 40 00 00 11 E4 00 01 00 03 00 0B 00 0B 00 17 00 17 00 17 00 77	/* Step Delay Freq. 120-30-10-10-5-5-5-1 */
 					39 00 00 40 00 00 04 B0 00 A9 E4
@@ -395,7 +407,7 @@
 					39 00 00 40 00 00 04 B0 00 F4 E4
 					15 00 00 40 00 00 02 E4 00					/* 0x00: On , 0x22: Off */
 					39 00 00 40 00 00 04 B0 00 65 E4
-					39 00 00 40 00 00 06 E4 00 00 00 00 00
+					39 00 00 40 00 00 06 E4 22 22 22 22 22
 					15 00 00 40 00 00 02 F7 0F
 					/* Level 2/3 key Disable */
 					39 00 00 40 00 00 03 F0 A5 A5
@@ -410,8 +422,8 @@
 					/* HOP Auto Mode OFF */
 					39 00 00 40 00 00 04 B0 00 B0 E4			/* Target Freq.Setting */
 					39 00 00 40 00 00 03 E4 00 01				/* BASE 120Hz(1CYC.) Low Freq. Setting, 0x00, 0x01 : 60Hz */
-					39 00 00 40 00 00 04 B0 00 68 E4
-					39 00 00 40 00 00 03 E4 22 22
+					39 00 00 40 00 00 04 B0 00 88 E4
+					39 00 00 40 00 00 05 E4 00 03 00 03			/* Insert Valid Freq.Setting */
 					39 00 00 40 00 00 04 B0 00 BA E4
 					39 00 00 40 00 00 11 E4 00 01 00 03 00 0B 00 0B 00 17 00 17 00 17 00 77	/* Step Delay Freq. 120-30-10-10-5-5-5-1 */
 					39 00 00 40 00 00 04 B0 00 A9 E4
@@ -434,8 +446,8 @@
 					/* HOP Auto Mode ON*/
 					39 00 00 40 00 00 04 B0 00 B0 E4			/* Target Freq.Setting */
 					39 00 00 40 00 00 03 E4 00 0B				/* BASE 120Hz(1CYC.) Low Freq. Setting, 0x00, 0x0B : 10Hz */
-					39 00 00 40 00 00 04 B0 00 68 E4
-					39 00 00 40 00 00 03 E4 22 22
+					39 00 00 40 00 00 04 B0 00 88 E4
+					39 00 00 40 00 00 05 E4 00 03 00 03			/* Insert Valid Freq.Setting */
 					39 00 00 40 00 00 04 B0 00 BA E4
 					39 00 00 40 00 00 11 E4 00 01 00 03 00 0B 00 0B 00 0B 00 0B 00 0B 00 0B	/* Step Delay Freq. 120-30-10-10-10-10-10-10 */
 					39 00 00 40 00 00 04 B0 00 A9 E4
@@ -444,7 +456,7 @@
 					39 00 00 40 00 00 04 B0 00 F4 E4
 					15 00 00 40 00 00 02 E4 00					/* 0x00: On , 0x22: Off */
 					39 00 00 40 00 00 04 B0 00 65 E4
-					39 00 00 40 00 00 06 E4 00 00 00 00 00
+					39 00 00 40 00 00 06 E4 22 22 22 22 22
 					15 00 00 40 00 00 02 F7 0F
 					/* Level 2/3 key Disable */
 					39 00 00 40 00 00 03 F0 A5 A5
@@ -458,8 +470,8 @@
 					/* HOP Auto Mode ON*/
 					39 00 00 40 00 00 04 B0 00 B0 E4			/* Target Freq.Setting */
 					39 00 00 40 00 00 03 E4 00 77				/* BASE 120Hz(1CYC.) Low Freq. Setting, 0x00, 0x77 : 1Hz */
-					39 00 00 40 00 00 04 B0 00 68 E4
-					39 00 00 40 00 00 03 E4 22 22
+					39 00 00 40 00 00 04 B0 00 88 E4
+					39 00 00 40 00 00 05 E4 00 03 00 03			/* Insert Valid Freq.Setting */
 					39 00 00 40 00 00 04 B0 00 BA E4
 					39 00 00 40 00 00 11 E4 00 01 00 03 00 0B 00 0B 00 17 00 17 00 17 00 77	/* Step Delay Freq. 120-30-10-10-5-5-5-1 */
 					39 00 00 40 00 00 04 B0 00 A9 E4
@@ -468,7 +480,7 @@
 					39 00 00 40 00 00 04 B0 00 F4 E4
 					15 00 00 40 00 00 02 E4 00					/* 0x00: On , 0x22: Off */
 					39 00 00 40 00 00 04 B0 00 65 E4
-					39 00 00 40 00 00 06 E4 00 00 00 00 00
+					39 00 00 40 00 00 06 E4 22 22 22 22 22
 					15 00 00 40 00 00 02 F7 0F
 					/* Level 2/3 key Disable */
 					39 00 00 40 00 00 03 F0 A5 A5
@@ -531,7 +543,7 @@
 					39 00 00 40 00 00 03 60 00 01				/* 0x09 : 60Hz(1cyc) */
 					/* Insert Valid Freq.Setting */
 					39 00 00 40 00 00 04 B0 00 88 E4
-					39 00 00 40 00 00 05 E4 00 01 00 01
+					39 00 00 40 00 00 05 E4 00 03 00 03
 					/* HOP Auto Mode OFF */
 					39 00 00 40 00 00 04 B0 00 A9 E4
 					15 00 00 40 00 00 02 E4 00					/* 0x00: Auto Off , 0x01: Auto On */
@@ -634,11 +646,13 @@
 			timing@sa_fhd_120{
 				#include "dsi-panel-AB849-P-1-A0022-common.dtsi"
 				//qcom,mdss-mdp-transfer-time-us = <6000>;
+				#include "dsi-panel-AB849-P-1-A0022-loading-effect.dtsi"
 				cell-index = <1>;
 				qcom,mdss-dsi-panel-framerate = <120>;
 				qcom,mdss-dsi-panel-clockrate = <1113600000>;
 				qcom,mdss-dsi-panel-width = <1264>;
 				qcom,mdss-dsi-panel-height = <2780>;
+				qcom,dsi-mode-te-width-us = <290>;
 
 				qcom,mdss-dsi-h-front-porch = <64>;
 				qcom,mdss-dsi-h-back-porch = <50>;
@@ -665,7 +679,7 @@
 					39 00 00 40 00 00 03 60 00 08				/* 0x08 : 120Hz(1/18cyc) */
 					/* Insert Valid Freq.Setting */
 					39 00 00 40 00 00 04 B0 00 88 E4
-					39 00 00 40 00 00 05 E4 00 00 00 00
+					39 00 00 40 00 00 05 E4 00 03 00 03
 					/* HOP Auto Mode OFF */
 					39 00 00 40 00 00 04 B0 00 A9 E4
 					15 00 00 40 00 00 02 E4 00					/* 0x00: Auto Off , 0x01: Auto On */
@@ -752,7 +766,7 @@
 					39 00 00 40 00 00 03 60 00 08				/* 0x08 : 120Hz(1cyc) */
 					/* Insert Valid Freq.Setting */
 					39 00 00 40 00 00 04 B0 00 88 E4
-					39 00 00 40 00 00 05 E4 00 00 00 00
+					39 00 00 40 00 00 05 E4 00 03 00 03
 					/* HOP Auto Mode OFF */
 					39 00 00 40 00 00 04 B0 00 A9 E4
 					15 00 00 40 00 00 02 E4 00					/* 0x00: Auto Off , 0x01: Auto On */
@@ -775,6 +789,16 @@
 					39 00 00 40 00 00 04 B0 00 79 B3
 					15 00 00 40 00 00 02 B3 06
 					39 00 00 00 00 00 03 F0 A5 A5
+					/* Laoding On 110% */
+					39 00 00 40 00 00 03 F0 5A 5A
+					39 00 00 40 00 00 04 B0 00 02 C5
+					39 00 00 40 00 00 02 C5 27
+					39 00 00 40 00 00 04 B0 00 1B B1
+					39 00 00 40 00 00 0F B1 72 92 2B 6D 80 CE A5 D6 AB FF 10 00 00 01
+					39 00 00 40 00 00 04 B0 00 20 B1
+					39 00 00 40 00 00 05 B1 73 5C D6 AB
+					39 00 00 40 00 00 02 F7 0F
+					39 00 00 40 00 00 03 F0 A5 A5
 					/* Solve the problem of mirror display shadow */
 					39 00 00 40 00 00 03 F0 5A 5A
 					39 00 00 40 00 00 04 B0 00 4A E1
@@ -919,8 +943,8 @@
 					/* HOP Auto Mode OFF */
 					39 00 00 40 00 00 04 B0 00 B0 E4			/* Target Freq.Setting */
 					39 00 00 40 00 00 03 E4 00 00				/* BASE 120Hz(1CYC.) Low Freq. Setting, 0x00,0x00 : 120Hz */
-					39 00 00 40 00 00 04 B0 00 68 E4
-					39 00 00 40 00 00 03 E4 22 22
+					39 00 00 40 00 00 04 B0 00 88 E4
+					39 00 00 40 00 00 05 E4 00 03 00 03			/* Insert Valid Freq.Setting */
 					39 00 00 40 00 00 04 B0 00 BA E4
 					39 00 00 40 00 00 11 E4 00 00 00 03 00 0B 00 0B 00 17 00 17 00 17 00 77	/* Step Delay Freq. 120-30-10-10-5-5-5-1 */
 					39 00 00 40 00 00 04 B0 00 A9 E4
@@ -943,8 +967,8 @@
 					/* HOP Auto Mode ON */
 					39 00 00 40 00 00 04 B0 00 B0 E4			/* Target Freq.Setting */
 					39 00 00 40 00 00 03 E4 00 0B				/* BASE 120Hz(1CYC.) Low Freq. Setting, 0x00, 0x0B : 10Hz */
-					39 00 00 40 00 00 04 B0 00 68 E4
-					39 00 00 40 00 00 03 E4 22 22
+					39 00 00 40 00 00 04 B0 00 88 E4
+					39 00 00 40 00 00 05 E4 00 03 00 03			/* Insert Valid Freq.Setting */
 					39 00 00 40 00 00 04 B0 00 BA E4
 					39 00 00 40 00 00 11 E4 00 00 00 03 00 0B 00 0B 00 0B 00 0B 00 0B 00 0B	/* Step Delay Freq. 120-30-10-10-10-10-10-10 */
 					39 00 00 40 00 00 04 B0 00 A9 E4
@@ -953,7 +977,7 @@
 					39 00 00 40 00 00 04 B0 00 F4 E4
 					15 00 00 40 00 00 02 E4 00					/* 0x00: On , 0x22: Off */
 					39 00 00 40 00 00 04 B0 00 65 E4
-					39 00 00 40 00 00 06 E4 00 00 00 00 00
+					39 00 00 40 00 00 06 E4 22 22 22 22 22
 					15 00 00 40 00 00 02 F7 0F
 					/* Level 2/3 key Disable */
 					39 00 00 40 00 00 03 F0 A5 A5
@@ -967,8 +991,8 @@
 					/* HOP Auto Mode ON */
 					39 00 00 40 00 00 04 B0 00 B0 E4			/* Target Freq.Setting */
 					39 00 00 40 00 00 03 E4 00 77				/* BASE 120Hz(1CYC.) Low Freq. Setting, 0x00,0x77 : 1Hz */
-					39 00 00 40 00 00 04 B0 00 68 E4
-					39 00 00 40 00 00 03 E4 22 22
+					39 00 00 40 00 00 04 B0 00 88 E4
+					39 00 00 40 00 00 05 E4 00 03 00 03			/* Insert Valid Freq.Setting */
 					39 00 00 40 00 00 04 B0 00 BA E4
 					39 00 00 40 00 00 11 E4 00 00 00 03 00 0B 00 0B 00 17 00 17 00 17 00 77	/* Step Delay Freq. 120-30-10-10-5-5-5-1 */
 					39 00 00 40 00 00 04 B0 00 A9 E4
@@ -977,7 +1001,7 @@
 					39 00 00 40 00 00 04 B0 00 F4 E4
 					15 00 00 40 00 00 02 E4 00					/* 0x00: On , 0x22: Off */
 					39 00 00 40 00 00 04 B0 00 65 E4
-					39 00 00 40 00 00 06 E4 00 00 00 00 00
+					39 00 00 40 00 00 06 E4 22 22 22 22 22
 					15 00 00 40 00 00 02 F7 0F
 					/* Level 2/3 key Disable */
 					39 00 00 40 00 00 03 F0 A5 A5
@@ -992,8 +1016,8 @@
 					/* HOP Auto Mode OFF */
 					39 00 00 40 00 00 04 B0 00 B0 E4			/* Target Freq.Setting */
 					39 00 00 40 00 00 03 E4 00 00				/* BASE 120Hz(1CYC.) Low Freq. Setting, 0x00,0x00 : 120Hz */
-					39 00 00 40 00 00 04 B0 00 68 E4
-					39 00 00 40 00 00 03 E4 22 22
+					39 00 00 40 00 00 04 B0 00 88 E4
+					39 00 00 40 00 00 05 E4 00 03 00 03			/* Insert Valid Freq.Setting */
 					39 00 00 40 00 00 04 B0 00 BA E4
 					39 00 00 40 00 00 11 E4 00 00 00 03 00 0B 00 0B 00 17 00 17 00 17 00 77	/* Step Delay Freq. 120-30-10-10-5-5-5-1 */
 					39 00 00 40 00 00 04 B0 00 A9 E4
@@ -1016,8 +1040,8 @@
 					/* HOP Auto Mode ON */
 					39 00 00 40 00 00 04 B0 00 B0 E4			/* Target Freq.Setting */
 					39 00 00 40 00 00 03 E4 00 0B				/* BASE 120Hz(1CYC.) Low Freq. Setting, 0x00, 0x0B : 10Hz */
-					39 00 00 40 00 00 04 B0 00 68 E4
-					39 00 00 40 00 00 03 E4 22 22
+					39 00 00 40 00 00 04 B0 00 88 E4
+					39 00 00 40 00 00 05 E4 00 03 00 03			/* Insert Valid Freq.Setting */
 					39 00 00 40 00 00 04 B0 00 BA E4
 					39 00 00 40 00 00 11 E4 00 00 00 03 00 0B 00 0B 00 0B 00 0B 00 0B 00 0B	/* Step Delay Freq. 120-30-10-10-10-10-10-10 */
 					39 00 00 40 00 00 04 B0 00 A9 E4
@@ -1026,7 +1050,7 @@
 					39 00 00 40 00 00 04 B0 00 F4 E4
 					15 00 00 40 00 00 02 E4 00					/* 0x00: On , 0x22: Off */
 					39 00 00 40 00 00 04 B0 00 65 E4
-					39 00 00 40 00 00 06 E4 00 00 00 00 00
+					39 00 00 40 00 00 06 E4 22 22 22 22 22
 					15 00 00 40 00 00 02 F7 0F
 					/* Level 2/3 key Disable */
 					39 00 00 40 00 00 03 F0 A5 A5
@@ -1040,8 +1064,8 @@
 					/* HOP Auto Mode ON */
 					39 00 00 40 00 00 04 B0 00 B0 E4			/* Target Freq.Setting */
 					39 00 00 40 00 00 03 E4 00 77				/* BASE 120Hz(1CYC.) Low Freq. Setting, 0x00,0x77 : 1Hz */
-					39 00 00 40 00 00 04 B0 00 68 E4
-					39 00 00 40 00 00 03 E4 22 22
+					39 00 00 40 00 00 04 B0 00 88 E4
+					39 00 00 40 00 00 05 E4 00 03 00 03			/* Insert Valid Freq.Setting */
 					39 00 00 40 00 00 04 B0 00 BA E4
 					39 00 00 40 00 00 11 E4 00 00 00 03 00 0B 00 0B 00 17 00 17 00 17 00 77	/* Step Delay Freq. 120-30-10-10-5-5-5-1 */
 					39 00 00 40 00 00 04 B0 00 A9 E4
@@ -1050,7 +1074,7 @@
 					39 00 00 40 00 00 04 B0 00 F4 E4
 					15 00 00 40 00 00 02 E4 00					/* 0x00: On , 0x22: Off */
 					39 00 00 40 00 00 04 B0 00 65 E4
-					39 00 00 40 00 00 06 E4 00 00 00 00 00
+					39 00 00 40 00 00 06 E4 22 22 22 22 22
 					15 00 00 40 00 00 02 F7 0F
 					/* Level 2/3 key Disable */
 					39 00 00 40 00 00 03 F0 A5 A5
@@ -1114,7 +1138,7 @@
 					39 00 00 40 00 00 03 60 00 00				/* 0x08 : 120Hz(1) */
 					/* Insert Valid Freq.Setting */
 					39 00 00 40 00 00 04 B0 00 88 E4
-					39 00 00 40 00 00 05 E4 00 00 00 00
+					39 00 00 40 00 00 05 E4 00 03 00 03
 					/* HOP Auto Mode OFF */
 					39 00 00 40 00 00 04 B0 00 A9 E4
 					15 00 00 40 00 00 02 E4 00					/* 0x00: Auto Off , 0x01: Auto On */
@@ -1217,11 +1241,13 @@
 			timing@oa_fhd_120{
 				#include "dsi-panel-AB849-P-1-A0022-common.dtsi"
 				//qcom,mdss-mdp-transfer-time-us = <6000>;
+				#include "dsi-panel-AB849-P-1-A0022-loading-effect.dtsi"
 				cell-index = <2>;
 				qcom,mdss-dsi-panel-framerate = <120>;
 				qcom,mdss-dsi-panel-clockrate = <1113600000>;
 				qcom,mdss-dsi-panel-width = <1264>;
 				qcom,mdss-dsi-panel-height = <2780>;
+				qcom,dsi-mode-te-width-us = <290>;
 
 				qcom,mdss-dsi-h-front-porch = <64>;
 				qcom,mdss-dsi-h-back-porch = <50>;
@@ -1248,7 +1274,7 @@
 					39 00 00 40 00 00 03 60 00 08				/* 0x08 : 120Hz(1cyc) */
 					/* Insert Valid Freq.Setting */
 					39 00 00 40 00 00 04 B0 00 88 E4
-					39 00 00 40 00 00 05 E4 00 00 00 00
+					39 00 00 40 00 00 05 E4 00 03 00 03
 					/* HOP Auto Mode OFF */
 					39 00 00 40 00 00 04 B0 00 A9 E4
 					15 00 00 40 00 00 02 E4 00					/* 0x00: Auto Off , 0x01: Auto On */
@@ -1335,7 +1361,7 @@
 					39 00 00 40 00 00 03 60 00 08				/* 0x08 : 120Hz(1cyc) */
 					/* Insert Valid Freq.Setting */
 					39 00 00 40 00 00 04 B0 00 88 E4
-					39 00 00 40 00 00 05 E4 00 00 00 00
+					39 00 00 40 00 00 05 E4 00 03 00 03
 					/* HOP Auto Mode OFF */
 					39 00 00 40 00 00 04 B0 00 A9 E4
 					15 00 00 40 00 00 02 E4 00					/* 0x00: Auto Off , 0x01: Auto On */
@@ -1358,6 +1384,16 @@
 					39 00 00 40 00 00 04 B0 00 79 B3
 					15 00 00 40 00 00 02 B3 06
 					39 00 00 00 00 00 03 F0 A5 A5
+					/* Laoding On 110% */
+					39 00 00 40 00 00 03 F0 5A 5A
+					39 00 00 40 00 00 04 B0 00 02 C5
+					39 00 00 40 00 00 02 C5 27
+					39 00 00 40 00 00 04 B0 00 1B B1
+					39 00 00 40 00 00 0F B1 72 92 2B 6D 80 CE A5 D6 AB FF 10 00 00 01
+					39 00 00 40 00 00 04 B0 00 20 B1
+					39 00 00 40 00 00 05 B1 73 5C D6 AB
+					39 00 00 40 00 00 02 F7 0F
+					39 00 00 40 00 00 03 F0 A5 A5
 					/* Solve the problem of mirror display shadow */
 					39 00 00 40 00 00 03 F0 5A 5A
 					39 00 00 40 00 00 04 B0 00 4A E1
@@ -1505,10 +1541,8 @@
 					/* HOP Auto Mode */
 					39 00 00 40 00 00 04 B0 00 B0 E4			/* Target Freq.Setting */
 					39 00 00 40 00 00 03 E4 00 00				/* BASE 120Hz(1CYC.) Low Freq. Setting, 0x00,0x00 : 120Hz */
-					39 00 00 40 00 00 04 B0 00 68 E4
-					39 00 00 40 00 00 03 E4 22 22
-					39 00 00 40 00 00 04 B0 00 88 E4			/* Insert Valid Freq.Setting */
-					39 00 00 40 00 00 05 E4 00 00 00 00
+					39 00 00 40 00 00 04 B0 00 88 E4
+					39 00 00 40 00 00 05 E4 00 03 00 03			/* Insert Valid Freq.Setting */
 					39 00 00 40 00 00 04 B0 00 BA E4
 					39 00 00 40 00 00 11 E4 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00	/* Step Delay Freq. ALL 120 */
 					39 00 00 40 00 00 04 B0 00 A9 E4
@@ -1517,7 +1551,7 @@
 					39 00 00 40 00 00 04 B0 00 F4 E4
 					15 00 00 40 00 00 02 E4 00					/* 0x00: On , 0x22: Off */
 					39 00 00 40 00 00 04 B0 00 65 E4
-					39 00 00 40 00 00 06 E4 22 22 22 22 22
+					39 00 00 40 00 00 06 E4 00 00 00 00 00
 					15 00 00 40 00 00 02 F7 0F
 					/* Level 2/3 key Disable */
 					39 00 00 40 00 00 03 F0 A5 A5
@@ -1531,10 +1565,8 @@
 					/* HOP Auto Mode ON */
 					39 00 00 40 00 00 04 B0 00 B0 E4			/* Target Freq.Setting */
 					39 00 00 40 00 00 03 E4 00 03				/* BASE 120Hz(1CYC.) Low Freq. Setting, 0x00,0x03 : 30Hz */
-					39 00 00 40 00 00 04 B0 00 68 E4
-					39 00 00 40 00 00 03 E4 22 22
-					39 00 00 40 00 00 04 B0 00 88 E4			/* Insert Valid Freq.Setting */
-					39 00 00 40 00 00 05 E4 00 03 00 03
+					39 00 00 40 00 00 04 B0 00 88 E4
+					39 00 00 40 00 00 05 E4 00 03 00 03			/* Insert Valid Freq.Setting */
 					39 00 00 40 00 00 04 B0 00 BA E4
 					39 00 00 40 00 00 11 E4 00 03 00 03 00 03 00 03 00 03 00 03 00 03 00 03	/* Step Delay Freq. 120-30 */
 					39 00 00 40 00 00 04 B0 00 A9 E4
@@ -1543,7 +1575,7 @@
 					39 00 00 40 00 00 04 B0 00 F4 E4
 					15 00 00 40 00 00 02 E4 00					/* 0x00: On , 0x22: Off */
 					39 00 00 40 00 00 04 B0 00 65 E4
-					39 00 00 40 00 00 06 E4 22 22 22 22 22
+					39 00 00 40 00 00 06 E4 00 00 00 00 00
 					15 00 00 40 00 00 02 F7 0F
 					/* Level 2/3 key Disable */
 					39 00 00 40 00 00 03 F0 A5 A5
@@ -1557,10 +1589,8 @@
 					/* HOP Auto Mode */
 					39 00 00 40 00 00 04 B0 00 B0 E4			/* Target Freq.Setting */
 					39 00 00 40 00 00 03 E4 00 00				/* BASE 120Hz(1CYC.) Low Freq. Setting, 0x00,0x00 : 120Hz */
-					39 00 00 40 00 00 04 B0 00 68 E4
-					39 00 00 40 00 00 03 E4 22 22
-					39 00 00 40 00 00 04 B0 00 88 E4			/* Insert Valid Freq.Setting */
-					39 00 00 40 00 00 05 E4 00 00 00 00
+					39 00 00 40 00 00 04 B0 00 88 E4
+					39 00 00 40 00 00 05 E4 00 03 00 03			/* Insert Valid Freq.Setting */
 					39 00 00 40 00 00 04 B0 00 BA E4
 					39 00 00 40 00 00 11 E4 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00	/* Step Delay Freq. ALL 120 */
 					39 00 00 40 00 00 04 B0 00 A9 E4
@@ -1569,7 +1599,7 @@
 					39 00 00 40 00 00 04 B0 00 F4 E4
 					15 00 00 40 00 00 02 E4 00					/* 0x00: On , 0x22: Off */
 					39 00 00 40 00 00 04 B0 00 65 E4
-					39 00 00 40 00 00 06 E4 22 22 22 22 22
+					39 00 00 40 00 00 06 E4 00 00 00 00 00
 					15 00 00 40 00 00 02 F7 0F
 					/* Level 2/3 key Disable */
 					39 00 00 40 00 00 03 F0 A5 A5
@@ -1583,10 +1613,8 @@
 					/* HOP Auto Mode ON */
 					39 00 00 40 00 00 04 B0 00 B0 E4			/* Target Freq.Setting */
 					39 00 00 40 00 00 03 E4 00 03				/* BASE 120Hz(1CYC.) Low Freq. Setting, 0x00,0x03 : 30Hz */
-					39 00 00 40 00 00 04 B0 00 68 E4
-					39 00 00 40 00 00 03 E4 22 22
-					39 00 00 40 00 00 04 B0 00 88 E4			/* Insert Valid Freq.Setting */
-					39 00 00 40 00 00 05 E4 00 03 00 03
+					39 00 00 40 00 00 04 B0 00 88 E4
+					39 00 00 40 00 00 05 E4 00 03 00 03			/* Insert Valid Freq.Setting */
 					39 00 00 40 00 00 04 B0 00 BA E4
 					39 00 00 40 00 00 11 E4 00 03 00 03 00 03 00 03 00 03 00 03 00 03 00 03	/* Step Delay Freq. 120-30 */
 					39 00 00 40 00 00 04 B0 00 A9 E4
@@ -1595,7 +1623,7 @@
 					39 00 00 40 00 00 04 B0 00 F4 E4
 					15 00 00 40 00 00 02 E4 00					/* 0x00: On , 0x22: Off */
 					39 00 00 40 00 00 04 B0 00 65 E4
-					39 00 00 40 00 00 06 E4 22 22 22 22 22
+					39 00 00 40 00 00 06 E4 00 00 00 00 00
 					15 00 00 40 00 00 02 F7 0F
 					/* Level 2/3 key Disable */
 					39 00 00 40 00 00 03 F0 A5 A5
@@ -1659,7 +1687,7 @@
 					39 00 00 40 00 00 03 60 00 00				/* 0x08 : 120Hz(1cyc) */
 					/* Insert Valid Freq.Setting */
 					39 00 00 40 00 00 04 B0 00 88 E4
-					39 00 00 40 00 00 05 E4 00 00 00 00
+					39 00 00 40 00 00 05 E4 00 03 00 03
 					/* HOP Auto Mode OFF */
 					39 00 00 40 00 00 04 B0 00 A9 E4
 					15 00 00 40 00 00 02 E4 00					/* 0x00: Auto Off , 0x01: Auto On */
@@ -1888,7 +1916,7 @@
 		Bit7: sending extend cmd while timing switch accroding to current pwm pulse level
 		Bit8: sending extend cmd after sending dbv threshold cmd in another thread
 	*/
-	oplus,pwm-switch-config = <0x16F>;//0b 1 0110 1111
+	oplus,pwm-switch-config = <0x17F>;//0b 1 0110 1111
 
 	/*	oplus,pwm-switch-mode0-states-info/oplus,pwm-switch-mode1-states-info:
 		Specific dbv threshold and pulse info of 2 pwm mode, for pulse, 0 symbols 1pulse,

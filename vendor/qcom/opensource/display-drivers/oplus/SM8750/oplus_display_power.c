@@ -676,7 +676,7 @@ int oplus_panel_parse_power_sequence_config(struct dsi_panel *panel)
 					OPLUS_DSI_INFO("power off vci post time = %d\n",
 									panel->oplus_panel.power_off_sequence[PANEL_POWER_SUPPLY_VCI][PANEL_POWER_SUPPLY_POST_MS]);
 					i+=1;
-				} else if (!strcmp(power_off_array[i], "vddr")) {
+				} else if (!strcmp(power_off_array[i], "vdd")) {
 					panel->oplus_panel.power_off_sequence[PANEL_POWER_SUPPLY_VDD][PANEL_POWER_SUPPLY_ORDER] = (i+1)/2;
 					ret = kstrtoint(power_off_array[i+1], 10, &temp);
 					if (ret) {

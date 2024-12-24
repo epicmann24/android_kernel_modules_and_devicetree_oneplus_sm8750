@@ -392,6 +392,13 @@ static ssize_t fast_chg_type_show(struct device *dev,
 			if (chip->pps_online || chip->pps_online_keep) {
 				fast_chg_type = CHARGER_SUBTYPE_PPS;
 				break;
+			} else if (is_cpa_topic_available(chip)) {
+				oplus_mms_get_item_data(chip->cpa_topic, CPA_ITEM_ALLOW, &data, false);
+				if (data.intval == CHG_PROTOCOL_PPS) {
+					/* switching pps */
+					pd_use_default = true;
+					break;
+				}
 			}
 			fallthrough;
 		case OPLUS_CHG_USB_TYPE_PD:
@@ -2690,9 +2697,18 @@ static int get_adapter_power(struct oplus_configfs_device *chip)
 		}
 	} else {
 		switch (chip->wired_type) {
+		case OPLUS_CHG_USB_TYPE_PD_PPS:
+			if (is_cpa_topic_available(chip)) {
+				oplus_mms_get_item_data(chip->cpa_topic, CPA_ITEM_ALLOW, &data, false);
+				if (data.intval == CHG_PROTOCOL_PPS) {
+					/* switching pps */
+					power = 10000;
+					break;
+				}
+			}
+			fallthrough;
 		case OPLUS_CHG_USB_TYPE_QC2:
 		case OPLUS_CHG_USB_TYPE_QC3:
-		case OPLUS_CHG_USB_TYPE_PD_PPS:
 		case OPLUS_CHG_USB_TYPE_PD:
 		case OPLUS_CHG_USB_TYPE_PD_DRP:
 			power = 18000;
@@ -2785,6 +2801,13 @@ static ssize_t protocol_type_show(struct device *dev,
 			if (chip->pps_online || chip->pps_online_keep) {
 				fast_chg_type = CHARGER_SUBTYPE_PPS;
 				break;
+			} else if (is_cpa_topic_available(chip)) {
+				oplus_mms_get_item_data(chip->cpa_topic, CPA_ITEM_ALLOW, &data, false);
+				if (data.intval == CHG_PROTOCOL_PPS) {
+					/* switching pps */
+					pd_use_default = true;
+					break;
+				}
 			}
 			fallthrough;
 		case OPLUS_CHG_USB_TYPE_PD:

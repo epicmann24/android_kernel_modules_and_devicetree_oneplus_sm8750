@@ -642,6 +642,9 @@ static void oplus_wired_qc_config_work(struct work_struct *work)
 		if (spec->vbatt_pdqc_to_9v_thr > 0 &&
 		    chip->vbat_mv < spec->vbatt_pdqc_to_9v_thr) {
 			chg_info("qc starts to boost, retry count %d.\n", chip->qc_retry_count);
+			/* Set the current to 500ma before QC boost ot 9V */
+			vote(chip->icl_votable, SPEC_VOTER, true, PDQC_BUCK_DEF_CURR_MA,
+			     true);
 			mutex_lock(&chip->icl_lock);
 			rc = oplus_wired_set_qc_config(OPLUS_CHG_QC_2_0, OPLUS_CHG_VBUS_9V);
 			mutex_unlock(&chip->icl_lock);
@@ -931,7 +934,14 @@ static void oplus_wired_strategy_update(struct oplus_chg_wired *chip)
 		vote(chip->icl_votable, STRATEGY_VOTER, false, 0, true);
 		chg_err("get strategy data error, rc=%d", rc);
 	} else {
-		vote(chip->icl_votable, STRATEGY_VOTER, true, tmp, true);
+		if (chip->chg_mode == OPLUS_WIRED_CHG_MODE_PD || chip->chg_mode == OPLUS_WIRED_CHG_MODE_QC) {
+			if (chip->vbus_set_mv == OPLUS_CHG_VBUS_9V)
+				vote(chip->icl_votable, STRATEGY_VOTER, true, tmp, true);
+			else
+				vote(chip->icl_votable, STRATEGY_VOTER, false, 0, true);
+		} else {
+			vote(chip->icl_votable, STRATEGY_VOTER, true, tmp, true);
+		}
 	}
 }
 
@@ -1189,6 +1199,7 @@ static void oplus_wired_plugin_work(struct work_struct *work)
 		vote(chip->icl_votable, HIDL_VOTER, false, 0, true);
 		vote(chip->icl_votable, MAX_VOTER, false, 0, true);
 		vote(chip->icl_votable, STRATEGY_VOTER, false, 0, true);
+		vote(chip->icl_votable, PD_PDO_ICL_VOTER, false, 0, true);
 		chip->pd_retry_count = 0;
 		chip->qc_retry_count = 0;
 		chip->qc_action = OPLUS_ACTION_NULL;
@@ -1247,7 +1258,7 @@ static void oplus_wired_chg_type_change_work(struct work_struct *work)
 	case OPLUS_CHG_USB_TYPE_PD:
 	case OPLUS_CHG_USB_TYPE_PD_DRP:
 	case OPLUS_CHG_USB_TYPE_PD_PPS:
-		if (chip->cpa_support)
+		if (chip->cpa_support && chip->cpa_current_type != CHG_PROTOCOL_PD)
 			break;
 		chip->chg_mode = OPLUS_WIRED_CHG_MODE_PD;
 		chip->pd_action = OPLUS_ACTION_BOOST;
@@ -1658,6 +1669,7 @@ static void oplus_wired_subscribe_cpa_topic(struct oplus_mms *topic,
 	}
 
 	oplus_mms_get_item_data(chip->cpa_topic, CPA_ITEM_ALLOW, &data, true);
+	chip->cpa_current_type = data.intval;
 	if (data.intval == CHG_PROTOCOL_QC)
 		schedule_work(&chip->qc_check_work);
 	else if (data.intval == CHG_PROTOCOL_PD)

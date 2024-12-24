@@ -5292,7 +5292,7 @@ static ssize_t icnss_show_fw_ready(struct device_driver *driver, char *buf)
 		pcie_l1_fail = test_bit(CNSS_PCIE_L1_FAIL,&plat_env->pcieL1Fail);
 	}
 	cnssprobesuccess = (cnssprobestate == CNSS_PROBE_SUCCESS);
-	return sprintf(buf, "%s:%s:%s:%s:%s:%s:%s:%s:%s",
+	return sprintf(buf, "%s:%s:%s:%s:%s:%s:%s:%s:%s:%s_%s:%s_%s",
            (idle_shutdown ? "idle_shutdown" : (firmware_ready ? "fwstatus_ready" : "fwstatus_not_ready")),
            (regdbloadsuccess ? "regdb_loadsuccess" : "regdb_loadfail"),
            (bdfloadsuccess ? "bdf_loadsuccess" : "bdf_loadfail"),
@@ -5301,7 +5301,9 @@ static ssize_t icnss_show_fw_ready(struct device_driver *driver, char *buf)
            (pcie_link_down ? "pcie_link_down" : "pcie_link_up"),
            (pcie_bus_fail ? "pcie_bus_fail" : "pcie_bus_success"),
            (pcie_enumerate_fail ? "pcie_enumerate_fail" : "pcie_enumerate_success"),
-           (pcie_l1_fail ? "pcie_l1_fail" : "pcie_l1_success")
+           (pcie_l1_fail ? "pcie_l1_fail" : "pcie_l1_success"),
+           "bdf_name", ((plat_env->bdf_name && strlen(plat_env->bdf_name)) ? plat_env->bdf_name : ""),
+           "region_name", ((plat_env->region_name && strlen(plat_env->region_name)) ? plat_env->region_name : "")
            );
 }
 

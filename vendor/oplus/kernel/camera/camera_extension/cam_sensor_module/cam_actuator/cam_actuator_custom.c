@@ -1209,7 +1209,7 @@ int oplus_cam_actuator_update_pid_oem(struct cam_actuator_ctrl_t *a_ctrl)
 {
 	struct device_node *of_node = NULL;
 	struct cam_hw_soc_info *soc_info = &a_ctrl->soc_info;
-	int32_t rc = 0, i = 0;
+	int32_t rc = 0, i = 0, retrycnt = 5;
 	enum camera_sensor_i2c_type addr_type = 0;
 	enum camera_sensor_i2c_type data_type = 0;
 
@@ -1270,16 +1270,22 @@ int oplus_cam_actuator_update_pid_oem(struct cam_actuator_ctrl_t *a_ctrl)
 		goto power_down;
 	}
 
-	rc = oplus_cam_apply_dtsetting_util(a_ctrl,
-		"pid_post_verify",
-		addr_type, data_type);
-	if (rc) {
-		CAM_EXT_ERR(CAM_EXT_ACTUATOR, "0x%02X Update PID failed, unexpected PID ver.",
-			a_ctrl->cci_client_sid);
-	} else {
-		CAM_EXT_INFO(CAM_EXT_ACTUATOR, "0x%02X PID version verify Succ.",
-			a_ctrl->cci_client_sid);
-	}
+	do {
+		rc = oplus_cam_apply_dtsetting_util(a_ctrl,
+			"pid_post_verify",
+			addr_type, data_type);
+		if (rc) {
+			oplus_cam_apply_dtsetting_util(a_ctrl,
+				"pid_update_setting",
+				addr_type, data_type);
+			retrycnt--;
+			CAM_EXT_ERR(CAM_EXT_ACTUATOR, "0x%02X  PID register double-check error, retry left %d times",
+				a_ctrl->cci_client_sid,retrycnt);
+		} else {
+			CAM_EXT_INFO(CAM_EXT_ACTUATOR, "0x%02X PID register double-check Succ.",
+				a_ctrl->cci_client_sid);
+		}
+	}while(rc && retrycnt > 0);
 
 power_down:
 	rc = oplus_cam_actuator_power_down(a_ctrl);

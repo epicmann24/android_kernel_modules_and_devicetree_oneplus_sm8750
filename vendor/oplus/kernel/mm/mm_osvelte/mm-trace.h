@@ -11,10 +11,10 @@
  * Note this message includes a tag, the pid, and the string given as the name.
  * Names should be kept short to get the most use of the trace buffer.
  */
-#define MM_TRACE_MESSAGE_LENGTH 1024
+#define MM_TRACE_MESSAGE_LENGTH 512
 
 /* reserve 32 for format_begin & format_end */
-#define MM_TRACE_FMT_MESSAGE_LENGTH (1024 - 32)
+#define MM_TRACE_FMT_MESSAGE_LENGTH (512 - 32)
 
 static noinline void tracing_mark_write(const char *buf)
 {
@@ -75,7 +75,7 @@ static void mm_trace_async_end_body(const char *name, int32_t cookie)
 
 static void mm_trace_int64_body(const char *name, int64_t value)
 {
-	WRITE_MSG("C|%d|", "|%ld", "", name, value);
+	WRITE_MSG("C|%d|", "|%lld", "", name, value);
 }
 
 /**

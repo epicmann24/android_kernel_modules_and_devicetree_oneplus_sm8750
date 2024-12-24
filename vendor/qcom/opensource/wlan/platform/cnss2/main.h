@@ -657,6 +657,7 @@ struct cnss_plat_data {
 	unsigned long pcieEnumState;
 	unsigned long pcieLinkDown;
 	unsigned long pcieL1Fail;
+	const char *bdf_name, *region_name;
 	#endif /* OPLUS_FEATURE_WIFI_DCS_SWITCH */
 	char device_name[CNSS_DEVICE_NAME_SIZE];
 	u32 plat_idx;

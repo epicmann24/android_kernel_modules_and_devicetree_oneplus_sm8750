@@ -578,6 +578,15 @@ int oplus_panel_pwm_dbv_threshold_switch_tx_cmd(struct dsi_panel *panel)
 		return rc;
 	}
 
+	if (panel->oplus_panel.pwm_params.pwm_power_on && !strcmp(panel->name, "AA590 P 3 A0020 dsc cmd mode panel")) {
+		panel->oplus_panel.pwm_params.pwm_power_on = false;
+		panel->oplus_panel.pwm_params.pwm_state_changed = false;
+		if (panel->oplus_panel.pwm_params.pwm_switch_state == PWM_SWITCH_MODE1 && panel->bl_config.bl_level > 1162) {
+			rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_PWM_STATE_L2TOL1, false);
+		}
+		return rc;
+	}
+
 	switch(last_state) {
 	case PWM_STATE_L1:
 		switch(cur_state) {
@@ -620,6 +629,17 @@ int oplus_panel_pwm_dbv_threshold_switch_tx_cmd(struct dsi_panel *panel)
 	}
 
 	rc = dsi_panel_tx_cmd_set(panel, pwm_switch_cmd, false);
+
+	if (!strcmp(panel->name, "AA590 P 3 A0020 dsc cmd mode panel")) {
+		if (pwm_switch_cmd == DSI_CMD_PWM_STATE_L2TOL3 || pwm_switch_cmd == DSI_CMD_PWM_STATE_L3TOL2) {
+			oplus_sde_early_wakeup(panel);
+			oplus_wait_for_vsync(panel);
+		} else if (pwm_switch_cmd == DSI_CMD_PWM_STATE_L1TOL3 || pwm_switch_cmd == DSI_CMD_PWM_STATE_L3TOL1) {
+			oplus_sde_early_wakeup(panel);
+			oplus_wait_for_vsync(panel);
+			oplus_wait_for_vsync(panel);
+		}
+	}
 
 	if (rc) {
 		OPLUS_PWM_ERR("pwm switch cmd %s tx failed!\n, rc = %d", cmd_set_prop_map[pwm_switch_cmd], rc);

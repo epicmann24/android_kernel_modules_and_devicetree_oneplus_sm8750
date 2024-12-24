@@ -9,4 +9,5 @@
 int oplus_wifi_init(struct platform_device *plat_dev);
 void oplus_wifi_deinit(void);
 const char* get_oplus_wifi_bdf(void);
+const char* get_oplus_wifi_region(void);
 #endif /* _OPLUS_WIFI_H */

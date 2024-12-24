@@ -52,6 +52,7 @@ struct oplus_smart_charge {
 	bool wired_online;
 	bool vooc_online;
 	bool wls_online;
+	bool vooc_charging;
 	unsigned int vooc_sid;
 
 	bool ufcs_online;
@@ -144,17 +145,17 @@ static void oplus_smart_chg_gauge_update(struct oplus_smart_charge *smart_chg)
 	}
 }
 
-int oplus_smart_chg_get_batt_curve_current(struct oplus_smart_charge *smart_chg)
+static int oplus_smart_chg_get_batt_curve_current(struct oplus_smart_charge *smart_chg)
 {
-	if (smart_chg->vooc_topic == NULL) {
+	if (smart_chg == NULL || smart_chg->vooc_topic == NULL) {
 		chg_err("vooc topic not found\n");
 		return -EINVAL;
 	}
-	if (smart_chg->vooc_online)
+	if (smart_chg->vooc_charging)
 		return oplus_vooc_get_batt_curve_current(smart_chg->vooc_topic);
-	else if (smart_chg->ufcs_online)
+	else if (smart_chg->ufcs_charging)
 		return oplus_ufcs_get_curve_ibus(smart_chg->ufcs_topic);
-	else if (smart_chg->pps_online)
+	else if (smart_chg->pps_charging)
 		return oplus_pps_get_curve_ibus(smart_chg->pps_topic);
 
 	return -EINVAL;
@@ -164,11 +165,15 @@ static int get_adapter_power(struct oplus_smart_charge *smart_chg)
 {
 	int power = 0;
 
-	if (smart_chg->vooc_online) {
+	if (smart_chg == NULL) {
+		chg_err("vooc topic not found\n");
+		return -EINVAL;
+	}
+	if (smart_chg->vooc_charging) {
 		power = sid_to_adapter_power(smart_chg->vooc_sid);
-	} else if (smart_chg->ufcs_online) {
+	} else if (smart_chg->ufcs_charging) {
 		power = oplus_ufcs_get_ufcs_power(smart_chg->ufcs_topic);
-	} else if (smart_chg->pps_online) {
+	} else if (smart_chg->pps_charging) {
 		if (smart_chg->pps_oplus_adapter)
 			power = oplus_pps_adapter_id_to_power(smart_chg->pps_adapter_id);
 		else
@@ -180,11 +185,11 @@ static int get_adapter_power(struct oplus_smart_charge *smart_chg)
 static int oplus_smart_chg_get_cool_down_current(struct oplus_smart_charge *smart_chg, int cool_down)
 {
 	int current_cool_down = -EINVAL;
-	if (smart_chg->vooc_online)
+	if (smart_chg->vooc_charging)
 		current_cool_down = oplus_vooc_level_to_current(smart_chg->vooc_topic, cool_down);
-	else if (smart_chg->ufcs_online)
+	else if (smart_chg->ufcs_charging)
 		current_cool_down = oplus_ufcs_level_to_current(smart_chg->ufcs_topic, cool_down);
-	else if (smart_chg->pps_online)
+	else if (smart_chg->pps_charging)
 		current_cool_down = oplus_pps_level_to_current(smart_chg->pps_topic, cool_down);
 
 	return current_cool_down;
@@ -195,7 +200,7 @@ static void oplus_smart_chg_quick_mode_check(struct oplus_smart_charge *smart_ch
 	bool quick_mode_check = false;
 	struct timespec ts_now;
 	long diff_time, gain_time_ms;
-	int batt_curve_current, cool_down, current_cool_down = 0, current_normal_cool_down = 0;
+	int batt_curve_current, cool_down, current_cool_down = -EINVAL, current_normal_cool_down = -EINVAL;
 	int led_on = 0;
 	union mms_msg_data data = { 0 };
 
@@ -221,7 +226,7 @@ static void oplus_smart_chg_quick_mode_check(struct oplus_smart_charge *smart_ch
 	diff_time = ts_now.tv_sec - smart_chg->quick_mode_time.tv_sec;
 	smart_chg->quick_mode_time = ts_now;
 
-	if (smart_chg->vooc_online || smart_chg->ufcs_online || smart_chg->pps_online) {
+	if (smart_chg->vooc_charging || smart_chg->ufcs_charging || smart_chg->pps_charging) {
 		if (smart_chg->vooc_topic == NULL) {
 			chg_err("vooc topic not found\n");
 			return;
@@ -234,12 +239,14 @@ static void oplus_smart_chg_quick_mode_check(struct oplus_smart_charge *smart_ch
 		}
 		if (led_on == 0 && is_vooc_curr_votable_available(smart_chg) &&
 		    is_pps_curr_votable_available(smart_chg) && is_ufcs_curr_votable_available(smart_chg)) {
-			if (smart_chg->vooc_online)
+			if (smart_chg->vooc_charging)
 				current_cool_down = get_effective_result(smart_chg->vooc_curr_votable);
-			else if (smart_chg->ufcs_online)
+			else if (smart_chg->ufcs_charging)
 				current_cool_down = get_effective_result(smart_chg->ufcs_curr_votable);
-			else if (smart_chg->pps_online)
+			else if (smart_chg->pps_charging)
 				current_cool_down = get_effective_result(smart_chg->pps_curr_votable);
+			else
+				return;
 		} else {
 			current_cool_down = oplus_smart_chg_get_cool_down_current(smart_chg, cool_down);
 		}
@@ -335,6 +342,10 @@ static void oplus_smart_chg_vooc_subs_callback(struct mms_subscribe *subs,
 			oplus_mms_get_item_data(smart_chg->vooc_topic, id, &data, false);
 			smart_chg->vooc_sid = (unsigned int)data.intval;
 			break;
+		case VOOC_ITEM_VOOC_CHARGING:
+			oplus_mms_get_item_data(smart_chg->vooc_topic, id, &data, false);
+			smart_chg->vooc_charging = (unsigned int)data.intval;
+			break;
 		default:
 			break;
 		}
@@ -374,6 +385,13 @@ static void oplus_smart_chg_subscribe_vooc_topic(struct oplus_mms *topic,
 		smart_chg->vooc_sid = 0;
 	} else {
 		smart_chg->vooc_sid = (unsigned int)data.intval;
+	}
+	rc = oplus_mms_get_item_data(smart_chg->vooc_topic, VOOC_ITEM_VOOC_CHARGING, &data, false);
+	if (rc < 0) {
+		chg_err("can't get vooc_charging, rc=%d\n", rc);
+		smart_chg->vooc_charging = 0;
+	} else {
+		smart_chg->vooc_charging = !!(unsigned int)data.intval;
 	}
 }
 

@@ -28,6 +28,10 @@
 #include "sa_pipeline.h"
 #endif
 
+#ifdef CONFIG_OPLUS_SCHED_GROUP_OPT
+#include "sa_group.h"
+#endif
+
 #define OPLUS_SCHEDULER_PROC_DIR		"oplus_scheduler"
 #define OPLUS_SCHEDASSIST_PROC_DIR		"sched_assist"
 
@@ -1016,6 +1020,7 @@ static ssize_t proc_ncsw_read(struct file *file, char __user *buf,
 	return simple_read_from_buffer(buf, count, ppos, buffer, len);
 }
 #endif
+
 static const struct proc_ops proc_sched_assist_enabled_fops = {
 	.proc_write		= proc_sched_assist_enabled_write,
 	.proc_read		= proc_sched_assist_enabled_read,
@@ -1187,6 +1192,10 @@ int oplus_sched_assist_proc_init(void)
 	device_node = of_find_compatible_node(NULL, NULL, "oplus,sched_assit");
 	if (device_node)
 		disable_setting = 0;
+
+#ifdef CONFIG_OPLUS_SCHED_GROUP_OPT
+	oplus_sched_group_init(d_sched_assist);
+#endif
 
 #ifdef CONFIG_OPLUS_CPU_AUDIO_PERF
 	oplus_sched_assist_audio_proc_init(d_sched_assist);

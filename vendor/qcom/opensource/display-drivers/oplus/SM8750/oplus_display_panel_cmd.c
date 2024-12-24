@@ -149,6 +149,8 @@ const char *cmd_set_prop_map[DSI_CMD_SET_MAX] = {
 	"qcom,mdss-dsi-ultra-low-power-aod-off-command",
 	"qcom,mdss-dsi-aod-on-1pulse-command",
 	"qcom,mdss-dsi-aod-off-1pulse-command",
+	"qcom,mdss-dsi-aod-off-compensation-command",
+	"qcom,mdss-dsi-aod-off-compensation-onepulse-command",
 #endif /* OPLUS_FEATURE_DISPLAY_ONSCREENFINGERPRINT */
 #ifdef OPLUS_FEATURE_DISPLAY
 	"qcom,mdss-dsi-post-on-backlight",
@@ -182,6 +184,7 @@ const char *cmd_set_prop_map[DSI_CMD_SET_MAX] = {
 	"qcom,mdss-dsi-hbm-exit-switch-command",
 	"qcom,mdss-dsi-hbm-max-command",
 	"qcom,mdss-dsi-hbm-exit-max-command",
+	"qcom,mdss-dsi-change-voltage-before-bl-0-command",
 	"qcom,mdss-dsi-pwm-switch-mode0-command",
 	"qcom,mdss-dsi-pwm-switch-mode1-command",
 	"qcom,mdss-dsi-pwm-switch-mode2-command",
@@ -371,6 +374,8 @@ const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
 	"qcom,mdss-dsi-ultra-low-power-aod-off-command-state",
 	"qcom,mdss-dsi-aod-on-1pulse-command-state",
 	"qcom,mdss-dsi-aod-off-1pulse-command-state",
+	"qcom,mdss-dsi-aod-off-compensation-command-state",
+	"qcom,mdss-dsi-aod-off-compensation-onepulse-command-state",
 #endif /* OPLUS_FEATURE_DISPLAY_ONSCREENFINGERPRINT */
 #ifdef OPLUS_FEATURE_DISPLAY
 	"qcom,mdss-dsi-post-on-backlight-state",
@@ -404,6 +409,7 @@ const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
 	"qcom,mdss-dsi-hbm-exit-switch-command-state",
 	"qcom,mdss-dsi-hbm-max-command-state",
 	"qcom,mdss-dsi-hbm-exit-max-command-state",
+	"qcom,mdss-dsi-change-voltage-before-bl-0-command-state",
 	"qcom,mdss-dsi-pwm-switch-mode0-command-state",
 	"qcom,mdss-dsi-pwm-switch-mode1-command-state",
 	"qcom,mdss-dsi-pwm-switch-mode2-command-state",

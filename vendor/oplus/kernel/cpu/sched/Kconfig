@@ -165,3 +165,8 @@ config OPLUS_CPUFREQ_IOWAIT_PROTECT
 	depends on OPLUS_FEATURE_EAS_OPT
 	help
 		ensure iowait decay not happen too quickly
+
+config OPLUS_SCHED_GROUP_OPT
+	bool "Oplus sched group optimization"
+	depends on FAIR_GROUP_SCHED
+	default FAIR_GROUP_SCHED

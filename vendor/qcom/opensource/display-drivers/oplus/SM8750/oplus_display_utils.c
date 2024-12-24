@@ -25,8 +25,6 @@
 #endif /* OPLUS_FEATURE_DISPLAY_ONSCREENFINGERPRINT */
 
 /* log level config */
-unsigned int oplus_dsi_log_level = OPLUS_LOG_LEVEL_DEBUG;
-
 unsigned int oplus_display_log_level = OPLUS_LOG_LEVEL_INFO;
 unsigned int oplus_display_trace_enable = OPLUS_DISPLAY_DISABLE_TRACE;
 unsigned int oplus_display_log_type = OPLUS_DEBUG_LOG_DISABLED;

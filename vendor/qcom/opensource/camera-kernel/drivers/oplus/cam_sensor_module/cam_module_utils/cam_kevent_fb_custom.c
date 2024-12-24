@@ -83,7 +83,7 @@ static ssize_t kernel_fb_write(struct file *file, const char __user *buf,
 
 	memcpy(event_id, fb_event_id_pos,
 	       idx > MAX_ID ? MAX_ID : idx - 1); /* 1: more than one $ */
-	CAM_INFO(CAM_UTIL, "kernel_fb_write:event_id = %s, payload=%s",
+	CAM_INFO(CAM_UTIL, "OlcErrorPrint:event_id = %s, payload=%s",
 		 event_id, fb_event_id_pos + idx + 1);
 
 #if defined(CONFIG_OPLUS_FEATURE_FEEDBACK) ||                                  \
@@ -211,7 +211,7 @@ int cam_olc_raise_exception(int excep_tpye, unsigned char *pay_load)
 			CAM_ERR(CAM_UTIL, "err: write kevent fb failed!");
 		} else {
 			CAM_INFO(CAM_UTIL,
-				 "write kevent fb event_id=%s, payload=%s",
+				 "OlcErrorPrint:event_id = %s, payload=%s",
 				 g_kernel_fb_conf[index].fb_event_id, pay_load);
 			g_kernel_fb_conf[index].record_time = time.tv_sec;
 		}

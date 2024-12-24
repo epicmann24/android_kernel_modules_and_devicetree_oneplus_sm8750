@@ -322,6 +322,7 @@ struct oplus_chg_wls_dynamic_config {
 	struct oplus_chg_wls_fcc_step epp_plus_steps;
 	struct oplus_chg_wls_fcc_step epp_steps;
 	struct oplus_chg_wls_norchg_steps norchg_steps;
+	int32_t fastch_max_vbat_mv[BATT_TEMP_MAX];
 } __attribute__((packed));
 
 struct oplus_wls_chg_rx {
@@ -5894,6 +5895,7 @@ static int oplus_chg_wls_fastchg_restart_check(struct oplus_chg_wls *wls_dev)
 	int batt_temp;
 	int real_soc = 100;
 	int ibat_ma = 0;
+	int vbat_mv = 0;
 	int rc;
 
 	if (wls_status->switch_quiet_mode || !wls_dev->batt_charge_enable)
@@ -5914,6 +5916,12 @@ static int oplus_chg_wls_fastchg_restart_check(struct oplus_chg_wls *wls_dev)
 	temp_region = oplus_chg_wls_get_temp_region(wls_dev);
 	if ((temp_region < BATT_TEMP_COOL) || (temp_region > BATT_TEMP_LITTLE_WARM)) {
 		chg_info("Abnormal battery temperature, can not restart fast charge\n");
+		return -EPERM;
+	}
+
+	rc = oplus_chg_wls_get_vbat(wls_dev, &vbat_mv);
+	if ((rc < 0) || vbat_mv >= dynamic_cfg->fastch_max_vbat_mv[temp_region]) {
+		chg_err("can't get vbat, or vbat is too high rc=%d\n", rc);
 		return -EPERM;
 	}
 
@@ -6193,7 +6201,8 @@ static int oplus_chg_wls_get_third_adapter_ext_cmd_p_id(struct oplus_chg_wls *wl
 	int try_count = 0;
 	char buf[3] = {0};
 	int soc = 0, temp = 0;
-	int project_power = 0;
+	int max_wls_power = 0;
+
 	if (wls_status->adapter_id != WLS_ADAPTER_THIRD_PARTY)
 		return rc;
 
@@ -6211,9 +6220,11 @@ static int oplus_chg_wls_get_third_adapter_ext_cmd_p_id(struct oplus_chg_wls *wl
 		buf[0] = (wls_dev->wls_phone_id >> 8) & 0xff;
 		buf[1] = wls_dev->wls_phone_id & 0xff;
 		chg_info("wls_phone_id=0x%x\n", wls_dev->wls_phone_id);
-		project_power = wls_dev->wls_power_mw;
-		buf[2] = wls_status->tx_pwr_max_mw > project_power ? wls_status->tx_pwr_max_mw : project_power;
-		chg_info("project_power=%d, tx_pwr_max_mw:%d, buf[2]:%d\n", project_power, wls_status->tx_pwr_max_mw, buf[2]);
+		max_wls_power = wls_status->pwr_max_mw > wls_dev->wls_power_mw ? wls_dev->wls_power_mw : wls_status->pwr_max_mw;
+		max_wls_power = max_wls_power / 1000;
+		/*buf[2] is Pld, power = 10 + pld[bit0:bit3] * 10 + pld[bit4:bit7]*/
+		buf[2] = ((((max_wls_power - 10) / 10) % 10) & 0xf) | ((((max_wls_power - 10) % 10) & 0xf) << 4);
+		chg_info("max_wls_power=%d, pwr_max_mw:%d, buf[2]:%d\n", max_wls_power, wls_status->pwr_max_mw, buf[2]);
 		do {
 			rc = oplus_chg_wls_send_data(wls_dev, WLS_CMD_GET_PRODUCT_ID, buf, 5);
 			if (rc < 0) {
@@ -6319,6 +6330,7 @@ static int oplus_chg_wls_rx_handle_state_default(struct oplus_chg_wls *wls_dev)
 #ifdef WLS_SUPPORT_OPLUS_CHG
 	struct oplus_chg_wls_dynamic_config *dynamic_cfg = &wls_dev->dynamic_config;
 	int real_soc = 100;
+	int vbat_mv = 0;
 #endif
 	enum oplus_chg_temp_region temp_region;
 	enum oplus_chg_wls_rx_mode rx_mode;
@@ -6459,6 +6471,11 @@ static int oplus_chg_wls_rx_handle_state_default(struct oplus_chg_wls *wls_dev)
 				if ((temp_region < BATT_TEMP_COOL) || (temp_region > BATT_TEMP_LITTLE_WARM)) {
 					chg_err("Abnormal battery temperature, temp_region=%d\n", temp_region);
 					vote(wls_dev->fastchg_disable_votable, QUIET_VOTER, true, 0, false);
+					wls_status->target_rx_state = OPLUS_CHG_WLS_RX_STATE_DONE;
+				}
+				rc = oplus_chg_wls_get_vbat(wls_dev, &vbat_mv);
+				if ((rc < 0) || vbat_mv >= dynamic_cfg->fastch_max_vbat_mv[temp_region]) {
+					chg_err("can't get vbat, or vbat is too high rc=%d\n", rc);
 					wls_status->target_rx_state = OPLUS_CHG_WLS_RX_STATE_DONE;
 				}
 			} else {
@@ -6654,6 +6671,7 @@ static int oplus_chg_wls_rx_handle_state_bpp(struct oplus_chg_wls *wls_dev)
 	int rc;
 	struct oplus_chg_wls_dynamic_config *dynamic_cfg = &wls_dev->dynamic_config;
 	int real_soc = 100;
+	int vbat_mv = 0;
 	enum oplus_chg_temp_region temp_region;
 	enum oplus_chg_wls_rx_mode rx_mode;
 	bool psy_changed = false;
@@ -6757,6 +6775,11 @@ static int oplus_chg_wls_rx_handle_state_bpp(struct oplus_chg_wls *wls_dev)
 			}
 			if ((temp_region < BATT_TEMP_LITTLE_COLD) || (temp_region > BATT_TEMP_WARM)) {
 				chg_err("Abnormal battery temperature, temp_region=%d\n", temp_region);
+				wls_status->target_rx_state = OPLUS_CHG_WLS_RX_STATE_DONE;
+			}
+			rc = oplus_chg_wls_get_vbat(wls_dev, &vbat_mv);
+			if ((rc < 0) || vbat_mv >= dynamic_cfg->fastch_max_vbat_mv[temp_region]) {
+				chg_err("can't get vbat, or vbat is too high rc=%d\n", rc);
 				wls_status->target_rx_state = OPLUS_CHG_WLS_RX_STATE_DONE;
 			}
 		} else {
@@ -7333,6 +7356,12 @@ static int oplus_chg_wls_rx_enter_state_fast(struct oplus_chg_wls *wls_dev)
 			chg_err("can't get vbat, rc=%d\n", rc);
 		delay_ms = 100;
 		return delay_ms;
+	}
+	if (vbat_mv >= dynamic_cfg->fastch_max_vbat_mv[oplus_chg_wls_get_temp_region(wls_dev)]) {
+		chg_err("can't get vbat, or vbat is too high rc=%d\n", rc);
+		wls_status->current_rx_state = OPLUS_CHG_WLS_RX_STATE_FAST;
+		wls_status->target_rx_state = OPLUS_CHG_WLS_RX_STATE_DONE;
+		return 0;
 	}
 
 	rc = oplus_chg_wls_get_batt_temp(wls_dev, &batt_temp);
@@ -10556,6 +10585,17 @@ static int oplus_chg_wls_parse_dt(struct oplus_chg_wls *wls_dev)
 	} else {
 		for (i = 0; i < WLS_SOC_NUM_MAX; i++)
 			chg_info(" strategy_soc: %d", dynamic_cfg->wls_strategy_soc[i]);
+	}
+
+	rc = read_unsigned_data_from_node(node, "oplus,fastchg-max-vbat",
+		dynamic_cfg->fastch_max_vbat_mv, BATT_TEMP_MAX);
+	if (rc < 0) {
+		chg_info("use default oplus,fastchg-max-vbat value\n");
+		for (i = 0; i < BATT_TEMP_MAX; i++)
+			dynamic_cfg->fastch_max_vbat_mv[i] = 5000;
+	} else {
+		for (i = 0; i < BATT_TEMP_MAX; i++)
+			chg_info("fastchg-max-vbat: %d", dynamic_cfg->fastch_max_vbat_mv[i]);
 	}
 
 	return 0;

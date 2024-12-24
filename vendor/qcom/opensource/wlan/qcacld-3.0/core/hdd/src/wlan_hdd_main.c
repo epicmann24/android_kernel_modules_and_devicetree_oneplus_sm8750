@@ -3685,7 +3685,7 @@ hdd_map_monitor_interface_vdev(struct hdd_adapter *sta_adapter)
 #endif
 
 static QDF_STATUS
-wlan_hdd_update_dbs_scan_and_fw_mode_config(void)
+wlan_hdd_update_dbs_scan_and_fw_mode_config(uint8_t vdev_id)
 {
 	struct policy_mgr_dual_mac_config cfg = {0};
 	QDF_STATUS status;
@@ -3718,6 +3718,8 @@ wlan_hdd_update_dbs_scan_and_fw_mode_config(void)
 	cfg.scan_config = 0;
 	cfg.fw_mode_config = 0;
 	cfg.set_dual_mac_cb = policy_mgr_soc_set_dual_mac_cfg_cb;
+	cfg.vdev_id = vdev_id;
+
 	if (policy_mgr_is_hw_dbs_capable(hdd_ctx->psoc)) {
 		status =
 		ucfg_policy_mgr_get_chnl_select_plcy(hdd_ctx->psoc,
@@ -3960,7 +3962,7 @@ int hdd_start_adapter(struct hdd_adapter *adapter, bool rtnl_held)
 		}
 	}
 
-	wlan_hdd_update_dbs_scan_and_fw_mode_config();
+	wlan_hdd_update_dbs_scan_and_fw_mode_config(adapter->deflink->vdev_id);
 
 exit_with_success:
 	hdd_create_adapter_sysfs_files(adapter);
@@ -10977,7 +10979,8 @@ int wlan_hdd_set_mon_chan(struct hdd_adapter *adapter)
 		mon_ctx = WLAN_HDD_GET_MONITOR_CTX_PTR(link_info);
 
 		if (!mon_ctx->freq) {
-			if (QDF_IS_STATUS_SUCCESS(wlan_vdev_is_up_active_state(link_info->vdev))) {
+			if (link_info->vdev &&
+			    QDF_IS_STATUS_SUCCESS(wlan_vdev_is_up_active_state(link_info->vdev))) {
 				hdd_debug("Del vdev %d", link_info->vdev_id);
 				wlan_hdd_delete_mon_link(adapter, link_info);
 			}
@@ -10990,7 +10993,8 @@ int wlan_hdd_set_mon_chan(struct hdd_adapter *adapter)
 			}
 
 			wlan_hdd_init_mon_link(hdd_ctx, link_info);
-		} else if (QDF_IS_STATUS_SUCCESS(wlan_vdev_is_up_active_state(link_info->vdev))) {
+		} else if (link_info->vdev &&
+			   QDF_IS_STATUS_SUCCESS(wlan_vdev_is_up_active_state(link_info->vdev))) {
 			des_chan = wlan_vdev_mlme_get_des_chan(link_info->vdev);
 			if (des_chan->ch_freq == mon_ctx->freq &&
 			    des_chan->ch_width == mon_ctx->bandwidth) {
@@ -11231,7 +11235,12 @@ QDF_STATUS hdd_start_all_adapters(struct hdd_context *hdd_ctx, bool rtnl_held)
 				break;
 			}
 			hdd_start_station_adapter(adapter);
-			hdd_set_mon_rx_cb(adapter->dev);
+			ret = hdd_set_mon_rx_cb(adapter->dev);
+			if (ret) {
+				hdd_adapter_dev_put_debug(adapter,
+							  dbgid);
+				continue;
+			}
 
 			wlan_hdd_set_mon_chan(adapter);
 			break;
@@ -11249,6 +11258,7 @@ QDF_STATUS hdd_start_all_adapters(struct hdd_context *hdd_ctx, bool rtnl_held)
 			hdd_err("Failed to set adapter FW params after SSR!");
 
 		wlan_hdd_cfg80211_register_frames(adapter);
+		wlan_hdd_update_dbs_scan_and_fw_mode_config(adapter->deflink->vdev_id);
 		hdd_create_adapter_sysfs_files(adapter);
 		hdd_adapter_dev_put_debug(adapter, dbgid);
 	}

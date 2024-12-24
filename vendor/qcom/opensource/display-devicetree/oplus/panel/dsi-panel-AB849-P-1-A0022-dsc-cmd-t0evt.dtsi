@@ -48,11 +48,13 @@
 			timing@sa_fhd_60{
 				#include "dsi-panel-AB849-P-1-A0022-common.dtsi"
 				//qcom,mdss-mdp-transfer-time-us = <6000>;
+				#include "dsi-panel-AB849-P-1-A0022-loading-effect.dtsi"
 				cell-index = <0>;
 				qcom,mdss-dsi-panel-framerate = <60>;
 				qcom,mdss-dsi-panel-clockrate = <1113600000>;
 				qcom,mdss-dsi-panel-width = <1264>;
 				qcom,mdss-dsi-panel-height = <2780>;
+				qcom,dsi-mode-te-width-us = <290>;
 
 				qcom,mdss-dsi-h-front-porch = <88>;
 				qcom,mdss-dsi-h-back-porch = <60>;
@@ -190,6 +192,16 @@
 					39 00 00 40 00 00 11 EE 05 00 03 00 07 00 03 00 01 00 03 00 03 00 03 00
 					15 00 00 40 00 00 02 F7 0F
 					39 00 00 00 00 00 03 F0 A5 A5
+					/* Laoding On 110% */
+					39 00 00 40 00 00 03 F0 5A 5A
+					39 00 00 40 00 00 04 B0 00 02 C5
+					39 00 00 40 00 00 02 C5 27
+					39 00 00 40 00 00 04 B0 00 1B B1
+					39 00 00 40 00 00 0F B1 72 92 2B 6D 80 CE A5 D6 AB FF 10 00 00 01
+					39 00 00 40 00 00 04 B0 00 20 B1
+					39 00 00 40 00 00 05 B1 73 5C D6 AB
+					39 00 00 40 00 00 02 F7 0F
+					39 00 00 40 00 00 03 F0 A5 A5
 					/* DBV DIMMING */
 					39 00 00 40 00 00 03 F0 5A 5A
 					39 00 00 40 00 00 04 B0 00 79 B3
@@ -591,11 +603,13 @@
 			timing@sa_fhd_120{
 				#include "dsi-panel-AB849-P-1-A0022-common.dtsi"
 				//qcom,mdss-mdp-transfer-time-us = <6000>;
+				#include "dsi-panel-AB849-P-1-A0022-loading-effect.dtsi"
 				cell-index = <2>;
 				qcom,mdss-dsi-panel-framerate = <120>;
 				qcom,mdss-dsi-panel-clockrate = <1113600000>;
 				qcom,mdss-dsi-panel-width = <1264>;
 				qcom,mdss-dsi-panel-height = <2780>;
+				qcom,dsi-mode-te-width-us = <290>;
 
 				qcom,mdss-dsi-h-front-porch = <64>;
 				qcom,mdss-dsi-h-back-porch = <50>;
@@ -729,6 +743,16 @@
 					39 00 00 40 00 00 11 EE 05 00 03 00 07 00 03 00 01 00 03 00 03 00 03 00
 					15 00 00 40 00 00 02 F7 0F
 					39 00 00 00 00 00 03 F0 A5 A5
+					/* Laoding On 110% */
+					39 00 00 40 00 00 03 F0 5A 5A
+					39 00 00 40 00 00 04 B0 00 02 C5
+					39 00 00 40 00 00 02 C5 27
+					39 00 00 40 00 00 04 B0 00 1B B1
+					39 00 00 40 00 00 0F B1 72 92 2B 6D 80 CE A5 D6 AB FF 10 00 00 01
+					39 00 00 40 00 00 04 B0 00 20 B1
+					39 00 00 40 00 00 05 B1 73 5C D6 AB
+					39 00 00 40 00 00 02 F7 0F
+					39 00 00 40 00 00 03 F0 A5 A5
 					/* DBV DIMMING */
 					39 00 00 40 00 00 03 F0 5A 5A
 					39 00 00 40 00 00 04 B0 00 79 B3
@@ -1131,11 +1155,13 @@
 			timing@oa_fhd_120{
 				#include "dsi-panel-AB849-P-1-A0022-common.dtsi"
 				//qcom,mdss-mdp-transfer-time-us = <6000>;
+				#include "dsi-panel-AB849-P-1-A0022-loading-effect.dtsi"
 				cell-index = <2>;
 				qcom,mdss-dsi-panel-framerate = <120>;
 				qcom,mdss-dsi-panel-clockrate = <1113600000>;
 				qcom,mdss-dsi-panel-width = <1264>;
 				qcom,mdss-dsi-panel-height = <2780>;
+				qcom,dsi-mode-te-width-us = <290>;
 
 				qcom,mdss-dsi-h-front-porch = <64>;
 				qcom,mdss-dsi-h-back-porch = <50>;
@@ -1269,6 +1295,16 @@
 					39 00 00 40 00 00 11 EE 05 00 03 00 07 00 03 00 01 00 03 00 03 00 03 00
 					15 00 00 40 00 00 02 F7 0F
 					39 00 00 00 00 00 03 F0 A5 A5
+					/* Laoding On 110% */
+					39 00 00 40 00 00 03 F0 5A 5A
+					39 00 00 40 00 00 04 B0 00 02 C5
+					39 00 00 40 00 00 02 C5 27
+					39 00 00 40 00 00 04 B0 00 1B B1
+					39 00 00 40 00 00 0F B1 72 92 2B 6D 80 CE A5 D6 AB FF 10 00 00 01
+					39 00 00 40 00 00 04 B0 00 20 B1
+					39 00 00 40 00 00 05 B1 73 5C D6 AB
+					39 00 00 40 00 00 02 F7 0F
+					39 00 00 40 00 00 03 F0 A5 A5
 					/* DBV DIMMING */
 					39 00 00 40 00 00 03 F0 5A 5A
 					39 00 00 40 00 00 04 B0 00 79 B3

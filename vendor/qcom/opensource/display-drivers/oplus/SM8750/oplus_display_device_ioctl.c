@@ -1979,6 +1979,9 @@ int oplus_display_panel_set_dc_compensate(void *data)
 {
 	uint32_t *dc_compensate = data;
 	dcc_flags = (int)(*dc_compensate);
-	OPLUS_DSI_ERR("DCCompensate set dc %d\n", dcc_flags);
+	OPLUS_DSI_INFO("DCCompensate set dc %d\n", dcc_flags);
+	if (dcc_flags == FILE_DESTROY) {
+		EXCEPTION_TRACKPOINT_REPORT("DisplayDriverID@@431$$DCCompensate file destroied!!");
+	}
 	return 0;
 }

@@ -284,6 +284,8 @@ struct oplus_chg_vooc {
 	struct oplus_cfg spec_debug_cfg;
 	struct oplus_cfg normal_debug_cfg;
 #endif
+	uint32_t cp_cooldown_limit_percent_75;
+	uint32_t cp_cooldown_limit_percent_85;
 };
 
 struct oplus_adapter_struct {
@@ -3050,7 +3052,8 @@ static void oplus_vooc_fastchg_work(struct work_struct *work)
 						chip, ret_info, pre_ret_info,
 						chip->sid, config->data_width == DATA_WIDTH_V2);
 				if (config->vooc_curr_table_type == VOOC_CP_CURR_TABLE) {
-					pre_ret_info = (ret_info <= CP_CURR_LIMIT_7BIT_2_0A) ? CP_CURR_LIMIT_7BIT_2_0A : ret_info;
+					pre_ret_info = (ret_info <= chip->cp_cooldown_limit_percent_85) ?
+							chip->cp_cooldown_limit_percent_85 : ret_info;
 				} else {
 					pre_ret_info = (ret_info <= CURR_LIMIT_7BIT_2_0A) ? CURR_LIMIT_7BIT_2_0A : ret_info;
 				}
@@ -3059,7 +3062,8 @@ static void oplus_vooc_fastchg_work(struct work_struct *work)
 						chip, ret_info, pre_ret_info,
 						chip->sid, config->data_width == DATA_WIDTH_V2);
 				if (config->vooc_curr_table_type == VOOC_CP_CURR_TABLE) {
-					pre_ret_info = (ret_info <= CP_CURR_LIMIT_7BIT_3_0A) ? CP_CURR_LIMIT_7BIT_3_0A : ret_info;
+					pre_ret_info = (ret_info <= chip->cp_cooldown_limit_percent_75) ?
+							chip->cp_cooldown_limit_percent_75 : ret_info;
 				} else {
 					pre_ret_info = (ret_info <= CURR_LIMIT_7BIT_3_0A) ? CURR_LIMIT_7BIT_3_0A : ret_info;
 				}
@@ -5560,6 +5564,19 @@ static int oplus_vooc_parse_dt(struct oplus_chg_vooc *chip)
 		  chip->subboard_ntc_abnormal_current,
 		  chip->smart_chg_bcc_support,
 		  chip->support_fake_vooc_check);
+
+	rc = of_property_read_u32(node, "oplus,cp_cooldown_limit_percent_75", &chip->cp_cooldown_limit_percent_75);
+	if (rc < 0) {
+		chg_err("oplus,cp_cooldown_limit_percent_75 reading failed, rc=%d\n", rc);
+		chip->cp_cooldown_limit_percent_75 = CP_CURR_LIMIT_7BIT_4_0A;
+	}
+	rc = of_property_read_u32(node, "oplus,cp_cooldown_limit_percent_85", &chip->cp_cooldown_limit_percent_85);
+	if (rc < 0) {
+		chg_err("oplus,cp_cooldown_limit_percent_85 reading failed, rc=%d\n", rc);
+		chip->cp_cooldown_limit_percent_85 = CP_CURR_LIMIT_7BIT_2_0A;
+	}
+	chg_info("cp_cooldown_limit_percent_75=%d, cp_cooldown_limit_percent_85=%d\n",
+		chip->cp_cooldown_limit_percent_75, chip->cp_cooldown_limit_percent_85);
 
 	rc = of_property_read_u32(node, "oplus,vooc_data_width", &data);
 	if (rc < 0) {

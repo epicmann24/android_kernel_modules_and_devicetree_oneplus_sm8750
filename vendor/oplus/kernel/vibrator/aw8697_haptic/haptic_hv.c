@@ -8435,6 +8435,7 @@ static void rtp_work_proc(struct work_struct *work)
 				aw_haptic->func->set_rtp_aei(aw_haptic, false);
 				aw_haptic->haptic_rtp_mode = false;
 				aw_dev_err("%s: failed to enter RTP_GO status!\n", __func__);
+				mutex_unlock(&aw_haptic->lock);
 				return;
 			}
 			mutex_unlock(&aw_haptic->lock);

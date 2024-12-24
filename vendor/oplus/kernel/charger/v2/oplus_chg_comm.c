@@ -2193,7 +2193,7 @@ static int oplus_comm_push_uisoc_drop_msg(struct oplus_chg_comm *chip,  int err,
 {
 	struct oplus_mms *err_topic;
 	struct mms_msg *msg;
-	static int pre_uisoc_low_power_drop_err;
+	static int pre_uisoc_low_power_drop_err = 0;
 	int rc;
 	static int Vterm = 0;
 	static int start_UISoc = 0;
@@ -2518,6 +2518,7 @@ static unsigned long oplus_comm_ui_soc_low_battery_control(struct oplus_chg_comm
 	static unsigned long last_jiffies = 0;
 	unsigned long jiffies_diff = 0;
 	int term_voltage = 0;
+	int ui_soc;
 
 	if (p_force_down_1 == NULL)
 		return soc_down_jiffies;
@@ -2529,6 +2530,7 @@ static unsigned long oplus_comm_ui_soc_low_battery_control(struct oplus_chg_comm
 	    vbat_low_soc_to_1 == TIMES_OF_LOW_BATT_CONTROL_ENABLE)) {
 
 		last_jiffies = jiffies;
+		ui_soc = chip->ui_soc;
 		if (is_gauge_term_voltage_votable_available(chip))
 			term_voltage = get_effective_result(chip->gauge_term_voltage_votable);
 
@@ -2547,7 +2549,7 @@ static unsigned long oplus_comm_ui_soc_low_battery_control(struct oplus_chg_comm
 		}
 
 		if ((chip->vbat_min_mv < term_voltage + volt_diff_of_soc_2) &&
-		    (chip->ibat_ma < chip->config.current_limit_of_drop_soc_2) && (chip->ui_soc >= UI_SOC_LOW_LIMIT)) {
+		    (chip->ibat_ma < chip->config.current_limit_of_drop_soc_2) && (ui_soc >= UI_SOC_LOW_LIMIT)) {
 			vbat_low_soc_to_2 ++;
 			if (vbat_low_soc_to_2 > TIMES_OF_LOW_BATT_CONTROL_ENABLE) {
 				vbat_low_soc_to_2 = TIMES_OF_LOW_BATT_CONTROL_ENABLE;
@@ -2557,9 +2559,9 @@ static unsigned long oplus_comm_ui_soc_low_battery_control(struct oplus_chg_comm
 					load_current = chip->config.load_current_of_drop_soc_2;
 
 					t_sum = back_rm * SEC_OF_ONE_HOUR / load_current;
-					t_soc_x_to_2 = t_sum / (chip->ui_soc - 2);
+					t_soc_x_to_2 = t_sum / (ui_soc - 2);
 					chg_err("ui_soc x to 2 smooth soc:%d temp:%d %d vbat_min:%d, term_v:%d %d jiff_n:%ld jiff:%ld t_soc:%d %d %d %d",
-					    chip->ui_soc, chip->shell_temp, volt_diff_of_soc_2, chip->vbat_min_mv,
+					    ui_soc, chip->shell_temp, volt_diff_of_soc_2, chip->vbat_min_mv,
 					    term_voltage, vbat_low_soc_to_2, soc_down_jiffies, chip->soc_update_jiffies,
 					    t_soc_x_to_2, back_rm, load_current, chip->ibat_ma);
 				}
@@ -2578,7 +2580,7 @@ static unsigned long oplus_comm_ui_soc_low_battery_control(struct oplus_chg_comm
 		/* Solve the ui_soc 5% jump to 0% problem. When the actual soc is 0%,
 		 * take out 1% in Power saving mode to smooth the ui_soc.
 		 */
-		if ((chip->vbat_min_mv < term_voltage && (chip->smooth_soc == 0)) && (chip->ui_soc > 1)) {
+		if ((chip->vbat_min_mv < term_voltage && (chip->smooth_soc == 0)) && (ui_soc > 1)) {
 			vbat_low_soc_to_1 ++;
 			if (vbat_low_soc_to_1 > TIMES_OF_LOW_BATT_CONTROL_ENABLE) {
 				vbat_low_soc_to_1 = TIMES_OF_LOW_BATT_CONTROL_ENABLE;
@@ -2588,9 +2590,9 @@ static unsigned long oplus_comm_ui_soc_low_battery_control(struct oplus_chg_comm
 					load_current = chip->config.load_current_of_drop_soc_1;
 
 					t_sum = back_rm * SEC_OF_ONE_HOUR / load_current;
-					t_soc_x_to_1 = t_sum / (chip->ui_soc - 1);
+					t_soc_x_to_1 = t_sum / (ui_soc - 1);
 					chg_err("ui_soc x to 1 smooth soc:%d temp:%d %d vbat_min:%d, term_v:%d %d jiff_n:%ld jiff:%ld t_soc:%d %d %d %d\n",
-					    chip->ui_soc, chip->shell_temp, volt_diff_of_soc_2, chip->vbat_min_mv,
+					    ui_soc, chip->shell_temp, volt_diff_of_soc_2, chip->vbat_min_mv,
 					    term_voltage, vbat_low_soc_to_1, soc_down_jiffies, chip->soc_update_jiffies,
 					    t_soc_x_to_1, *p_force_down_1, back_rm, load_current);
 				}

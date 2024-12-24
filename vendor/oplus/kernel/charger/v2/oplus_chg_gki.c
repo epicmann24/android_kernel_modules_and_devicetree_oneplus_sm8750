@@ -24,6 +24,7 @@
 #include <oplus_mms_wired.h>
 #include <oplus_chg_ufcs.h>
 #include <oplus_chg_wls.h>
+#include <oplus_chg_pps.h>
 
 struct oplus_gki_device {
 	struct device *dev;
@@ -36,7 +37,7 @@ struct oplus_gki_device {
 	struct mms_subscribe *comm_subs;
 	struct mms_subscribe *vooc_subs;
 	struct mms_subscribe *ufcs_subs;
-
+	struct mms_subscribe *pps_subs;
 	struct oplus_mms *wired_topic;
 	struct oplus_mms *gauge_topic;
 	struct oplus_mms *main_gauge_topic;
@@ -44,6 +45,7 @@ struct oplus_gki_device {
 	struct oplus_mms *comm_topic;
 	struct oplus_mms *vooc_topic;
 	struct oplus_mms *ufcs_topic;
+	struct oplus_mms *pps_topic;
 
 	struct work_struct gauge_update_work;
 	struct votable *chg_disable_votable;
@@ -92,6 +94,10 @@ struct oplus_gki_device {
 
 	bool smart_charging_screenoff;
 	enum oplus_temp_region temp_region;
+	bool ufcs_online;
+	bool pre_ufcs_online;
+	bool pps_online;
+	bool pre_pps_online;
 };
 
 static struct oplus_gki_device *g_gki_dev;
@@ -636,6 +642,8 @@ static int battery_psy_get_prop(struct power_supply *psy,
 		pval->intval = chip->batt_rm * 1000;
 		break;
 	case POWER_SUPPLY_PROP_CYCLE_COUNT:
+		if (chip->charger_cycle < 0)
+			chip->charger_cycle = 0;
 		pval->intval = chip->charger_cycle;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
@@ -1388,6 +1396,10 @@ static void oplus_gki_vooc_subs_callback(struct mms_subscribe *subs,
 			if (!IS_ERR_OR_NULL(chip->batt_psy))
 				power_supply_changed(chip->batt_psy);
 			break;
+		case VOOC_ITEM_SID:
+			if (!IS_ERR_OR_NULL(chip->batt_psy))
+				power_supply_changed(chip->batt_psy);
+			break;
 		default:
 			break;
 		}
@@ -1425,12 +1437,28 @@ static void oplus_gki_ufcs_subs_callback(struct mms_subscribe *subs,
 					 enum mms_msg_type type, u32 id, bool sync)
 {
 	struct oplus_gki_device *chip = subs->priv_data;
+	union mms_msg_data data = { 0 };
+	int rc;
 
 	if (NULL == chip)
 		return;
 
 	switch (type) {
 	case MSG_TYPE_ITEM:
+		switch (id) {
+		case UFCS_ITEM_ONLINE:
+			rc = oplus_mms_get_item_data(chip->ufcs_topic, id, &data, false);
+			if (rc < 0)
+				break;
+			chip->ufcs_online = !!data.intval;
+			if ((!chip->pre_ufcs_online) && chip->ufcs_online &&
+			    (!IS_ERR_OR_NULL(chip->batt_psy)))
+				power_supply_changed(chip->batt_psy);
+			chip->pre_ufcs_online = chip->ufcs_online;
+			break;
+		default:
+			break;
+		}
 		break;
 	default:
 		break;
@@ -1447,6 +1475,47 @@ static void oplus_gki_subscribe_ufcs_topic(struct oplus_mms *topic,
 	if (IS_ERR_OR_NULL(chip->ufcs_subs)) {
 		chg_err("subscribe ufcs topic error, rc=%ld\n",
 			PTR_ERR(chip->ufcs_subs));
+		return;
+	}
+}
+
+static void oplus_gki_pps_subs_callback(struct mms_subscribe *subs,
+					enum mms_msg_type type, u32 id, bool sync)
+{
+	struct oplus_gki_device *chip = subs->priv_data;
+	union mms_msg_data data = { 0 };
+	int rc;
+
+	switch (type) {
+	case MSG_TYPE_ITEM:
+		switch (id) {
+		case PPS_ITEM_ONLINE:
+			rc = oplus_mms_get_item_data(chip->pps_topic, id, &data, false);
+			if (rc < 0)
+				break;
+			chip->pps_online = !!data.intval;
+			if ((!chip->pre_pps_online) && chip->pps_online &&
+			    (!IS_ERR_OR_NULL(chip->batt_psy)))
+				power_supply_changed(chip->batt_psy);
+			chip->pre_pps_online = chip->pps_online;
+			break;
+		default:
+			break;
+		}
+		break;
+	default:
+		break;
+	}
+}
+
+static void oplus_gki_subscribe_pps_topic(struct oplus_mms *topic, void *prv_data)
+{
+	struct oplus_gki_device *chip = prv_data;
+
+	chip->pps_topic = topic;
+	chip->pps_subs = oplus_mms_subscribe(chip->pps_topic, chip, oplus_gki_pps_subs_callback, "gki");
+	if (IS_ERR_OR_NULL(chip->pps_subs)) {
+		chg_err("subscribe pps topic error, rc=%ld\n", PTR_ERR(chip->pps_subs));
 		return;
 	}
 }
@@ -1528,6 +1597,7 @@ static __init int oplus_chg_gki_init(void)
 	oplus_mms_wait_topic("common", oplus_gki_subscribe_comm_topic, gki_dev);
 	oplus_mms_wait_topic("vooc", oplus_gki_subscribe_vooc_topic, gki_dev);
 	oplus_mms_wait_topic("ufcs", oplus_gki_subscribe_ufcs_topic, gki_dev);
+	oplus_mms_wait_topic("pps", oplus_gki_subscribe_pps_topic, gki_dev);
 
 	platform_driver_register(&oplus_chg_gki_driver);
 	return 0;
@@ -1556,6 +1626,8 @@ static __exit void oplus_chg_gki_exit(void)
 		oplus_mms_unsubscribe(g_gki_dev->vooc_subs);
 	if (!IS_ERR_OR_NULL(g_gki_dev->ufcs_subs))
 		oplus_mms_unsubscribe(g_gki_dev->ufcs_subs);
+	if (!IS_ERR_OR_NULL(g_gki_dev->pps_subs))
+		oplus_mms_unsubscribe(g_gki_dev->pps_subs);
 
 	kfree(g_gki_dev);
 	g_gki_dev = NULL;

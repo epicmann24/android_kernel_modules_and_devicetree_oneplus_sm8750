@@ -56,6 +56,7 @@
 #define PPS_TEMP_OVER_COUNTS		2
 #define PPS_TEMP_WARM_RANGE_THD	10
 #define PPS_TEMP_LOW_RANGE_THD		10
+#define PPS_COLD_TEMP_RANGE_THD		10
 
 #define PPS_R_AVG_NUM			10
 #define PPS_R_ROW_NUM			7
@@ -162,6 +163,7 @@ struct oplus_pps_limits {
 	int pps_warm_allow_soc;
 
 	int pps_batt_over_low_temp;
+	int pps_low_temp;
 	int pps_little_cold_temp;
 	int pps_cool_temp;
 	int pps_little_cool_temp;
@@ -1131,7 +1133,7 @@ static bool oplus_pps_charge_allow_check(struct oplus_pps *chip)
 		chg_temp = data.intval;
 	}
 
-	if (chg_temp < chip->limits.pps_batt_over_low_temp ||
+	if (chg_temp < chip->limits.pps_low_temp ||
 	    chg_temp >= (chip->limits.pps_batt_over_high_temp - PPS_TEMP_WARM_RANGE_THD)) {
 		vote(chip->pps_not_allow_votable, BATT_TEMP_VOTER, true, 1, false);
 	} else if (chg_temp > (chip->limits.pps_normal_high_temp - PPS_TEMP_WARM_RANGE_THD)) {
@@ -1492,6 +1494,7 @@ static int oplus_pps_charge_start(struct oplus_pps *chip)
 	static int retry_count = 0;
 	int batt_num;
 	int soc;
+	const char temp_region[] = "temp_region";
 
 #define PPS_START_VOL_THR_4_TO_1_600MV	600
 #define PPS_START_VOL_THR_3_TO_1_400MV	400
@@ -1576,6 +1579,7 @@ static int oplus_pps_charge_start(struct oplus_pps *chip)
 						chip->strategy = chip->oplus_curve_strategy;
 					else
 						chip->strategy = chip->third_curve_strategy;
+					oplus_chg_strategy_set_process_data(chip->strategy, temp_region, chip->pps_temp_cur_range);
 					rc = oplus_chg_strategy_init(chip->strategy);
 					if (rc < 0) {
 						chg_err("strategy_init error, not support pps fast charge\n");
@@ -2542,7 +2546,7 @@ static void oplus_pps_check_ibat_safety(struct oplus_pps *chip)
 		vote(chip->pps_disable_votable, NO_DATA_VOTER, true, 1, false);
 		return;
 	}
-	rc = oplus_mms_get_item_data(chip->gauge_topic, GAUGE_ITEM_CURR, &data, false);
+	rc = oplus_mms_get_item_data(chip->gauge_topic, GAUGE_ITEM_CURR, &data, true);
 	if (rc < 0) {
 		chg_err("can't get ibat, rc=%d\n", rc);
 		vote(chip->pps_disable_votable, NO_DATA_VOTER, true, 1, false);
@@ -4378,7 +4382,8 @@ static int oplus_pps_parse_charge_strategy(struct oplus_pps *chip)
 		chip->limits.pps_strategy_temp_num = 7;
 		chg_err("parse pps_charge_strategy_temp error, rc=%d\n", rc);
 	}
-	chip->limits.pps_batt_over_low_temp = rang_temp_tmp[0];
+	chip->limits.pps_low_temp = rang_temp_tmp[0];
+	chip->limits.pps_batt_over_low_temp = rang_temp_tmp[0] - PPS_COLD_TEMP_RANGE_THD;
 	chip->limits.pps_little_cold_temp = rang_temp_tmp[1];
 	chip->limits.pps_cool_temp = rang_temp_tmp[2];
 	chip->limits.pps_little_cool_temp = rang_temp_tmp[3];

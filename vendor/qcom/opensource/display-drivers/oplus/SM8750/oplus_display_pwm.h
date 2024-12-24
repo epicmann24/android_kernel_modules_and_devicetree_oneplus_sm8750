@@ -25,13 +25,13 @@ enum oplus_pwm_turbo_log_level {
 };
 
 /* -------------------- extern ---------------------------------- */
-extern unsigned int oplus_dsi_log_level;
+extern unsigned int oplus_display_log_level;
 
 
 /* -------------------- pwm turbo debug log-------------------------------------------  */
 #define OPLUS_PWM_ERR(fmt, arg...)	\
 	do {	\
-		if (oplus_dsi_log_level >= OPLUS_LOG_LEVEL_ERR)	\
+		if (oplus_display_log_level >= OPLUS_LOG_LEVEL_ERR)	\
 			pr_err("[PWM_SWITCH][ERR][%s:%d]"pr_fmt(fmt), __func__, __LINE__, ##arg);	\
 	} while (0)
 
@@ -48,7 +48,7 @@ extern unsigned int oplus_dsi_log_level;
 
 #define OPLUS_PWM_DEBUG(fmt, arg...)	\
 	do {	\
-		if (oplus_dsi_log_level >= OPLUS_LOG_LEVEL_DEBUG || (oplus_display_log_type & OPLUS_DEBUG_LOG_DSI))	 \
+		if (oplus_display_log_level >= OPLUS_LOG_LEVEL_DEBUG || (oplus_display_log_type & OPLUS_DEBUG_LOG_DSI))	 \
 			pr_info("[PWM_SWITCH][DEBUG][%s:%d]"pr_fmt(fmt), __func__, __LINE__, ##arg);	\
 	} while (0)
 
