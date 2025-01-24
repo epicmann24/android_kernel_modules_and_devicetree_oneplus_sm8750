@@ -554,11 +554,13 @@ static void record_rtmutex_lock_starttime_handler(void *unused,
 	record_lock_starttime_handler(NULL, current, settime);
 }
 
+#ifdef CONFIG_PCPU_RWSEM_LOCKING_PROTECT
 static void record_pcprwsem_starttime_handler(void *unused,
 			struct percpu_rw_semaphore *sem, unsigned long settime)
 {
 	record_lock_starttime_handler(NULL, current, settime);
 }
+#endif
 
 static int register_dstate_opt_vendor_hooks(void)
 {

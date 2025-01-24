@@ -192,16 +192,16 @@ void oplus_ffl_setting_thread(struct kthread_work *work)
 	int system_backlight_target;
 	int rc;
 
-	if (__oplus_get_power_status() == OPLUS_DISPLAY_POWER_OFF) {
-		return;
-	}
-
 	if (is_ffl_enable != FFL_TRIGGLE_CONTROL) {
 		return;
 	}
 
 	if (!display || !display->panel) {
 		OPLUS_DSI_ERR("failed to find display panel \n");
+		return;
+	}
+
+	if (display->panel->power_mode == SDE_MODE_DPMS_OFF) {
 		return;
 	}
 

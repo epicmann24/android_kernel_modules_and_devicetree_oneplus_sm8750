@@ -18,6 +18,9 @@
 #include "include/cam_csiphy_2_3_0_hwreg_dodge_tele.h"
 #include "include/cam_csiphy_2_3_0_hwreg_dodge_ultrawide.h"
 #include "include/cam_csiphy_2_3_0_hwreg_pista_front.h"
+#include "include/cam_csiphy_2_3_0_hwreg_hummer_main.h"
+#include "include/cam_csiphy_2_3_0_hwreg_piloti_ultrawide.h"
+#include "include/cam_csiphy_2_3_0_hwreg_piloti_main.h"
 #endif
 
 /* Clock divide factor for CPHY spec v1.0 */
@@ -385,6 +388,12 @@ int32_t cam_csiphy_parse_dt_info(struct platform_device *pdev,
 	} else if (of_device_is_compatible(soc_info->dev->of_node, "qcom,csiphy-pistafront")) {
 		csiphy_dev->ctrl_reg = &ctrl_reg_2_3_0_pista_front;
 		csiphy_dev->hw_version = CSIPHY_VERSION_V230_PISTA_FRONT;
+		csiphy_dev->is_divisor_32_comp = true;
+		csiphy_dev->clk_lane = 0;
+
+	} else if (of_device_is_compatible(soc_info->dev->of_node, "qcom,csiphy-hummermain")) {
+		csiphy_dev->ctrl_reg = &ctrl_reg_2_3_0_hummer_main;
+		csiphy_dev->hw_version = CSIPHY_VERSION_V230_HUMMER_MAIN;
 		csiphy_dev->is_divisor_32_comp = true;
 		csiphy_dev->clk_lane = 0;
 #endif

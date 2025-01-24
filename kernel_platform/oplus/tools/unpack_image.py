@@ -3,18 +3,20 @@ import subprocess
 import sys
 import argparse
 
+tools_dir = os.path.dirname(os.path.realpath(__file__))
 def parse_cmd_args():
 
     parser = argparse.ArgumentParser(description="unpack image tool")
     parser.add_argument('-i', '--input', type=str, help='input image name', default='')
-    parser.add_argument('-o', '--out', type=str, help='unpack image dir', default='out')
-    parser.add_argument('-z', '--zip7z', type=str, help='7z unpack tool', default= '7z')
-    parser.add_argument('-r', '--erofs', type=str, help='erofs unpack tool', default='erofsfuse')
-    parser.add_argument('-m', '--mnt', type=str, help='tmp mount path', default='mnt')
+    parser.add_argument('-o', '--out', type=str, help='unpack image dir', default=tools_dir + '/out')
+    parser.add_argument('-z', '--zip7z', type=str, help='7z unpack tool', default=tools_dir + '/7z_new')
+    parser.add_argument('-r', '--erofs', type=str, help='erofs unpack tool', default=tools_dir + '/erofsfuse')
+    parser.add_argument('-m', '--mnt', type=str, help='tmp mount path', default=tools_dir + '/mnt')
     args = parser.parse_args()
 
     print('input dir:', args.input, '\nout dir:', args.out,
-    '7z tools:', args.zip7z, '\nerofs tools:', args.erofs)
+    '\n7z tools:', args.zip7z, '\nerofs tools:', args.erofs,
+    '\nmnt:', args.mnt)
     return args
 
 def check_files_in_directory(directory_path):

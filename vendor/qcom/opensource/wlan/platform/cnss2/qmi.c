@@ -335,6 +335,16 @@ static void cnss_wlfw_host_cap_parse_mlo(struct cnss_plat_data *plat_priv,
 	}
 }
 
+#ifdef OPLUS_FEATURE_WIFI_BEAM_SWITCH
+static bool needSupportBeamSwitch(void) {
+		int project_id = get_project();
+		if (project_id == 24811) {
+			return true;
+		}
+		return false;
+}
+#endif /* OPLUS_FEATURE_WIFI_BEAM_SWITCH */
+
 static int cnss_wlfw_host_cap_send_sync(struct cnss_plat_data *plat_priv)
 {
 	struct wlfw_host_cap_req_msg_v01 *req;
@@ -367,6 +377,31 @@ static int cnss_wlfw_host_cap_send_sync(struct cnss_plat_data *plat_priv)
 		cnss_pr_dbg("WAKE MSI base data is %d\n", req->wake_msi);
 		req->wake_msi_valid = 1;
 	}
+
+	#ifdef OPLUS_FEATURE_WIFI_BEAM_SWITCH
+	if (needSupportBeamSwitch()) {
+		req->gpios_valid = 1;
+
+		/* Format of GPIO configuration -
+		 * A_UINT32 default_output_val:1, GPIO default Output value if direction is output
+		 * reserved1:7, reserved bits
+		 * sw_func:4,   GPIO pin software function selection
+		 * pull:2,      GPIO Pull, TLMM_GPIO_CFGn.GPIO_PULL
+		 * func:4,      GPIO pin function, TLMM_GPIO_CFGn.FUNC_SEL
+		 * drive:3,     GPIO Drive, TLMM_GPIO_CFGn.DRV_STRENGTH
+		 * dir:1,       GPIO pin direction: PLAT_GPIO_DIR_OUTPUT
+		 * reserved0:2, reserved bits
+		 * gpio_num:8;  GPIO pin number
+		 */
+		/* 1st GPIO */
+		req->gpios[0] = 0x47242D00;  // set GPIO 71 as output low
+
+		/* The Nth GPIO if any, and update req->gpios_len accordingly
+		* Ensure gpios_len less than QMI_WLFW_MAX_NUM_GPIO_V01
+		*/
+		req->gpios_len = 1;
+	}
+	#endif /* OPLUS_FEATURE_WIFI_BEAM_SWITCH */
 
 	req->bdf_support_valid = 1;
 	req->bdf_support = 1;
@@ -788,7 +823,7 @@ static bool is_prj_support_region_id(void) {
 static bool is_prj_support_region_id_24671(void) {
 	int project_id = get_project();
 	cnss_pr_info("the project support region id is: %d\n", project_id);
-	if (project_id == 24671) {
+	if (project_id == 24671 || project_id == 24670) {
 		return true;
 	}
 	return false;

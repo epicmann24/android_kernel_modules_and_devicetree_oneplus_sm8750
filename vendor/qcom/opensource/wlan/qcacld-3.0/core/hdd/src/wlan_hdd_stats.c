@@ -7505,6 +7505,12 @@ hdd_wlan_fill_per_chain_rssi_stats(struct station_info *sinfo,
 			rssi_stats_valid = true;
 	}
 
+	#ifdef OPLUS_FEATURE_WIFI_BEAM_SWITCH
+	//add for beam switch
+	if (NUM_CHAINS_MAX > 1)
+		send_chain_rssi_to_oplus(link_info->vdev_id, sinfo->chain_signal_avg[0], sinfo->chain_signal_avg[1]);
+	#endif /* OPLUS_FEATURE_WIFI_BEAM_SWITCH */
+
 	if (rssi_stats_valid) {
 		sinfo->filled |= HDD_INFO_CHAIN_SIGNAL_AVG;
 		sinfo->filled |= HDD_INFO_SIGNAL_AVG;

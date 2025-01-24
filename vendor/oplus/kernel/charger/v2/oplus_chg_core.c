@@ -308,7 +308,7 @@ unsigned int oplus_chg_get_nvid_support_flags(void)
 	return nvid_support_flags;
 }
 
-unsigned int oplus_chg_get_common_charge_icl_support_flags(void)
+bool oplus_chg_get_common_charge_icl_support_flags(void)
 {
 	struct device_node *node;
 	static int common_charge_icl_support = -EINVAL;
@@ -329,7 +329,7 @@ unsigned int oplus_chg_get_common_charge_icl_support_flags(void)
 		}
 	}
 
-	return common_charge_icl_support;
+	return ((common_charge_icl_support == 1) ? true : false);
 }
 
 static struct oplus_chg_module *oplus_chg_find_first_module(void)

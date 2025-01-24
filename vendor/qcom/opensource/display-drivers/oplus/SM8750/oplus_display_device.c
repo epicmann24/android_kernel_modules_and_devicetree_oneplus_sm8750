@@ -271,8 +271,8 @@ err_backlightbuf:
 
 static int panel_open(struct inode *inode, struct file *filp)
 {
-	if (panel_ref > 3) {
-		OPLUS_DSI_ERR("panel has already open\n");
+	if (panel_ref >= OPLUS_PANEL_DEVICE_REF_MAX) {
+		OPLUS_DSI_ERR("panel_ref[%d] has reached the maximum\n", panel_ref);
 		return -1;
 	}
 
@@ -285,19 +285,12 @@ static int panel_open(struct inode *inode, struct file *filp)
 	return 0;
 }
 
-extern ssize_t oplus_sde_evtlog_dump_read(struct file *file, char __user *buff,
-		size_t count, loff_t *ppos);
-
 static ssize_t panel_read(struct file *filp, char __user *buffer,
 		size_t count, loff_t *offset)
 {
 	ssize_t lens = 0;
 
-	lens += oplus_sde_evtlog_dump_read(filp, buffer, count, offset);
-	if (lens < 0) {
-		lens = 0;
-	}
-	/* other dump add here, as for lens add */
+	/* dump add here, as for lens add */
 
 	return lens;
 }

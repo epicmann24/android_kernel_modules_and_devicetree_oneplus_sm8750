@@ -1548,20 +1548,22 @@ static void _sde_encoder_phys_cmd_setup_panic_wakeup(struct sde_encoder_phys *ph
 	struct intf_panic_wakeup_cfg cfg = { 0 };
 	struct sde_encoder_phys_cmd *cmd_enc = to_sde_encoder_phys_cmd(phys_enc);
 	bool qsync_en = sde_connector_get_qsync_mode(phys_enc->connector);
-	u32 bw_update_time_lines, prefill_lines, vrefresh, vsync_vtotal, vsync_count;
-	u32 te_width_lines = 0;
+	u32 bw_update_time_lines = 0, prefill_lines = 0, vrefresh = 0;
+	u32 vsync_vtotal = 0, vsync_count = 0;
 
 	if (!phys_enc->hw_intf || !phys_enc->hw_intf->ops.setup_te_panic_wakeup)
 		return;
 
-	if (sde_enc->disp_info.disable_cesta_hw_sleep) {
-		SDE_DEBUG_CMDENC(cmd_enc, "avoid panic/wakeup window configuration\n");
-		SDE_EVT32(sde_enc->disp_info.disable_cesta_hw_sleep);
-		return;
-	}
+	vrefresh = drm_mode_vrefresh(mode);
 
-	/* update panic/wakeup & vsync_count based on multi_te_fps when its enabled */
-	vrefresh = sde_enc->multi_te_fps ? sde_enc->multi_te_fps : drm_mode_vrefresh(mode);
+	/* disable panic/wakeup when multi-te is enabled or hw-sleep disabled */
+	if (sde_enc->multi_te_fps || sde_enc->disp_info.disable_cesta_hw_sleep) {
+		SDE_DEBUG_CMDENC(cmd_enc, "avoid panic/wakeup window configuration\n");
+		SDE_EVT32(sde_enc->multi_te_fps, sde_enc->disp_info.disable_cesta_hw_sleep);
+
+		memset(&cfg, 0, sizeof(struct intf_panic_wakeup_cfg));
+		goto end;
+	}
 
 	vsync_count = sde_encoder_helper_calc_vsync_count(phys_enc->parent, mode->vtotal, vrefresh);
 	if (!vsync_count)
@@ -1574,35 +1576,31 @@ static void _sde_encoder_phys_cmd_setup_panic_wakeup(struct sde_encoder_phys *ph
 				DIV_ROUND_UP(info->prefill_lines * vrefresh, DEFAULT_FPS)
 					: info->prefill_lines;
 
+	cfg.enable = true;
 	cfg.wakeup_window = qsync_en ? cmd_enc->qsync_threshold_lines
 				: DEFAULT_TEARCHECK_SYNC_THRESH_START;
 	cfg.wakeup_start =  mode->vdisplay
 				+ (vsync_vtotal
 					- DIV_ROUND_UP(vsync_vtotal * info->jitter_numer,
 						info->jitter_denom * 100))
-				- prefill_lines - te_width_lines;
+				- prefill_lines;
 
 	bw_update_time_lines = sde_encoder_helper_get_bw_update_time_lines(sde_enc);
 	cfg.panic_window = bw_update_time_lines + cfg.wakeup_window + 1;
 	cfg.panic_start = cfg.wakeup_start - bw_update_time_lines;
 
-	if (sde_enc->disp_info.level_te && qsync_en) {
-		cfg.wakeup_window = 0xffffffff;
-		cfg.panic_window = 0xffffffff;
-	/* extend the panic/wakeup windows to max in mult-te case*/
-	} else if (sde_enc->multi_te_fps || qsync_en) {
+	/* extend the panic/wakeup windows to (max - 1) in qsync case*/
+	if (qsync_en) {
 		cfg.wakeup_window = 0xfffffffe;
 		cfg.panic_window = 0xfffffffe;
 	}
-
-
+end:
 	phys_enc->hw_intf->ops.setup_te_panic_wakeup(phys_enc->hw_intf, &cfg);
 
 	SDE_EVT32(phys_enc->hw_intf->idx - INTF_0, cfg.wakeup_start, cfg.wakeup_window,
 			cfg.panic_start, cfg.panic_window, mode->vdisplay, bw_update_time_lines,
-			prefill_lines, info->prefill_lines, vsync_count, vsync_vtotal,
-			vrefresh, info->jitter_numer, info->jitter_denom,
-			sde_enc->multi_te_fps, drm_mode_vrefresh(mode));
+			prefill_lines, vsync_count, vsync_vtotal, vrefresh, info->jitter_numer,
+			info->jitter_denom, sde_enc->multi_te_fps, drm_mode_vrefresh(mode));
 }
 
 static void _sde_encoder_update_multi_te_config(struct sde_encoder_phys *phys_enc, bool override)
@@ -2794,10 +2792,11 @@ void sde_encoder_phys_cmd_cesta_ctrl_cfg(struct sde_encoder_phys *phys_enc,
 	cfg->avr_enable = false;
 	cfg->intf = phys_enc->intf_idx - INTF_0;
 	cfg->auto_active_on_panic = autorefresh_en;
-	cfg->req_mode = (qsync_en || disable_hw_sleep) ?
+	cfg->req_mode = (qsync_en || sde_enc->multi_te_fps || disable_hw_sleep) ?
 				SDE_CESTA_CTRL_REQ_IMMEDIATE : SDE_CESTA_CTRL_REQ_PANIC_REGION;
 	cfg->hw_sleep_enable = !(autorefresh_en
 					|| phys_enc->sde_kms->splash_data.num_splash_displays
+					|| sde_enc->multi_te_fps
 					|| disable_hw_sleep);
 
 	if ((phys_enc->split_role == DPU_MASTER_ENC_ROLE_MASTER)

@@ -3214,11 +3214,10 @@ lim_disable_bformee_for_iot_ap(struct mac_context *mac_ctx,
 
 	if (wlan_action_oui_search(mac_ctx->psoc,
 				   &vendor_ap_search_attr,
-				   ACTION_OUI_DISABLE_BFORMEE) &&
-	    session->nss == 2 && CH_WIDTH_160MHZ == session->ch_width) {
+				   ACTION_OUI_DISABLE_BFORMEE)) {
 		session->vht_config.su_beam_formee = 0;
 		session->vht_config.mu_beam_formee = 0;
-		pe_debug("IoT ap with BW 160 MHz NSS 2, disable Beamformee");
+		pe_debug("Disable Beamformee for IoT AP");
 	}
 }
 
@@ -5991,8 +5990,9 @@ void lim_parse_tpe_ie(struct mac_context *mac, struct pe_session *session,
 				MAX_TX_PWR_COUNT_FOR_160MHZ;
 		}
 		expect_num = lim_get_num_pwr_levels(false, session->ch_width);
-		single_tpe.max_tx_pwr_count =
-			QDF_MIN(single_tpe.max_tx_pwr_count, expect_num - 1);
+		if (expect_num > 0)
+			single_tpe.max_tx_pwr_count =
+				QDF_MIN(single_tpe.max_tx_pwr_count, expect_num - 1);
 
 		vdev_mlme->reg_tpc_obj.is_psd_power = false;
 		vdev_mlme->reg_tpc_obj.eirp_power = 0;

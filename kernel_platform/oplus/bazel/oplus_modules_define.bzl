@@ -9,6 +9,10 @@ load(":oplus_modules_variant.bzl", "OPLUS_FEATURES")
 bazel_support_platform = "qcom"
 bazel_wifionly = None
 
+def oplus_ddk_get_targets():
+    return bazel_support_target
+
+
 """
 将以 OPLUS_FEATURE_ 打头的环境变量转换为字典
 """

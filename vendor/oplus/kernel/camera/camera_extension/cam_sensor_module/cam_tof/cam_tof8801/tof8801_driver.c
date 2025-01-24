@@ -2918,6 +2918,30 @@ int	tof8801_stop(void)
 }
 EXPORT_SYMBOL(tof8801_stop);
 
+void tof8801_clean(void)
+{
+	struct tof_sensor_chip *chip = g_tof_sensor_chip;
+
+	if (NULL != chip && is_8801_alread_probe) {
+
+		if (chip->app0_app.cap_settings.cmd != 0) {
+			chip->app0_app.cap_settings.cmd = 0;
+			tof8801_app0_capture(chip, 0);
+		}
+
+		if (chip->poll_period != 0 && chip->irq_thread_status == TOF_IRQ_THREAD_START) {
+			(void)kthread_stop(chip->app0_poll_irq);
+			chip->irq_thread_status = TOF_IRQ_THREAD_STOP;
+		}
+
+		g_is_alread_runing = 0;
+
+		do_tof_power_down();
+	}
+
+}
+EXPORT_SYMBOL(tof8801_clean);
+
 int wait_for_tof8801_ready(void)
 {
 
@@ -2968,6 +2992,8 @@ int wait_for_tof8801_ready(void)
 			goto gen_err;
 		}
 		if(is_8801chipid_matched){
+			is_8801_alread_probe = 1 ;
+			CAM_EXT_INFO(CAM_EXT_TOF, "Caemra Tof iic communication ok.\n");
 			tof_chip->saved_clk_trim = UNINITIALIZED_CLK_TRIM_VAL;
 			tof_chip->fuse_clk_trim	= UNINITIALIZED_CLK_TRIM_VAL;
 			//read external (manufacturer) configuration data
@@ -2991,9 +3017,28 @@ int wait_for_tof8801_ready(void)
 			CAM_EXT_INFO(CAM_EXT_TOF, "Set defualt period = %d clk_iterations = %d \n",
 					 tof_chip->app0_app.cap_settings.period,
 					 defualt_capture_iterations);
-			is_8801_alread_probe = 1 ;
-			CAM_EXT_INFO(CAM_EXT_TOF, "Caemra Tof Probe ok.\n");
 
+			//Setup input device
+			if(tof8801_registered_driver.dev_registered == FALSE){
+				tof_chip->obj_input_dev = devm_input_allocate_device(&client->dev);
+				if (tof_chip->obj_input_dev == NULL) {
+					CAM_EXT_ERR(CAM_EXT_TOF, "Error allocating input_dev.\n");
+					goto input_dev_alloc_err;
+				}
+				tof_chip->obj_input_dev->name = tof_chip->pdata->tof_name;
+				tof_chip->obj_input_dev->id.bustype = BUS_I2C;
+				input_set_drvdata(tof_chip->obj_input_dev, tof_chip);
+				tof_chip->obj_input_dev->open = tof_input_dev_open;
+				set_bit(EV_ABS, tof_chip->obj_input_dev->evbit);
+				input_set_abs_params(tof_chip->obj_input_dev, ABS_DISTANCE, 0, 0xFF, 0, 0);
+				error = input_register_device(tof_chip->obj_input_dev);
+				tof8801_registered_driver.dev_registered = TRUE;
+				if (error) {
+					CAM_EXT_ERR(CAM_EXT_TOF, "Error registering input_dev.\n");
+					goto input_reg_err;
+				}
+				CAM_EXT_INFO(CAM_EXT_TOF, " register input_dev.\n");
+			}
 			if(tof8801_registered_driver.sysfs_registered == FALSE){
 				cam_tof_kobj = kobject_create_and_add("tof_control", kernel_kobj);
 				error = sysfs_create_groups(cam_tof_kobj, tof_groups);
@@ -3005,11 +3050,7 @@ int wait_for_tof8801_ready(void)
 				CAM_EXT_INFO(CAM_EXT_TOF, " register sysfs attribute group.\n");
 			}
 		}else{
-			if(tof8801_registered_driver.dev_registered){
-				input_unregister_device(tof_chip->obj_input_dev);
-				tof8801_registered_driver.dev_registered = FALSE;
-			}
-			CAM_EXT_ERR(CAM_EXT_TOF, "chipid not matched, remove input_dev and sysfs attribute group.\n");
+			CAM_EXT_ERR(CAM_EXT_TOF, "chipid not matched, input_dev and sysfs attribute group are not registed.\n");
 			error = -EIO;
 			goto gen_err;
 		}
@@ -3031,14 +3072,22 @@ int wait_for_tof8801_ready(void)
 */
 
 	return 0;
-gen_err:
 sysfs_err:
 	if(tof8801_registered_driver.sysfs_registered == TRUE){
 		sysfs_remove_groups(cam_tof_kobj, tof_groups);
 		tof8801_registered_driver.sysfs_registered = FALSE;
 	}
+input_dev_alloc_err:
+input_reg_err:
+	if(tof8801_registered_driver.dev_registered == TRUE){
+		input_unregister_device(tof_chip->obj_input_dev);
+		tof8801_registered_driver.dev_registered = FALSE;
+	}
+gen_err:
 	do_tof_power_down();
+	i2c_set_clientdata(client, NULL);
 	CAM_EXT_ERR(CAM_EXT_TOF, "Probe failed.\n");
+
 /*
 	AMS_MUTEX_OEM_LOCK(&tof_chip->power_lock);
 	if(tof_chip->power_status == TOF_POWER_ON && tof_chip->tof_power_down_thread_exit == TOF_POWER_THREAD_STOP){
@@ -3096,26 +3145,6 @@ static int tof_probe(struct i2c_client *client)
 	//Setup measure timer
 	timer_setup(&tof_chip->meas_timer,tof8801_app0_measure_timer_expiry_callback,0);
 
-	//Setup input device
-	tof_chip->obj_input_dev = devm_input_allocate_device(&client->dev);
-	if (tof_chip->obj_input_dev == NULL) {
-		CAM_EXT_ERR(CAM_EXT_TOF, "Error allocating input_dev.\n");
-		goto input_dev_alloc_err;
-	}
-	tof_chip->obj_input_dev->name = tof_chip->pdata->tof_name;
-	tof_chip->obj_input_dev->id.bustype = BUS_I2C;
-	input_set_drvdata(tof_chip->obj_input_dev, tof_chip);
-	tof_chip->obj_input_dev->open = tof_input_dev_open;
-	set_bit(EV_ABS, tof_chip->obj_input_dev->evbit);
-	input_set_abs_params(tof_chip->obj_input_dev, ABS_DISTANCE, 0, 0xFF, 0, 0);
-	error = input_register_device(tof_chip->obj_input_dev);
-	if (error) {
-		CAM_EXT_ERR(CAM_EXT_TOF, "Error registering input_dev.\n");
-		goto input_reg_err;
-	}
-	tof8801_registered_driver.dev_registered = TRUE;
-	CAM_EXT_INFO(CAM_EXT_TOF, " register input_dev.\n");
-
 	error = tof_get_gpio_config(tof_chip);
 	if (error)
 		goto gpio_err;
@@ -3160,23 +3189,11 @@ static int tof_probe(struct i2c_client *client)
 	return 0;
 
 	/***** Failure case(s), unwind and return error *****/
-/*
-sysfs_err:
-	sysfs_remove_groups(cam_tof_kobj, tof_groups);
-	tof8801_registered_driver.sysfs_registered = FALSE;*/
-	/*gen_err:
-		if (tof_chip->poll_period != 0) {
-		(void)kthread_stop(tof_chip->app0_poll_irq);
-		}*/
 gpio_err:
 	if (tof_chip->pdata->gpiod_enable)
 		(void) gpiod_direction_output(tof_chip->pdata->gpiod_enable, 0);
 //kthread_start_err:
-input_dev_alloc_err:
-input_reg_err:
 	i2c_set_clientdata(client, NULL);
-	input_unregister_device(tof_chip->obj_input_dev);
-	tof8801_registered_driver.dev_registered = FALSE;
 	CAM_EXT_INFO(CAM_EXT_TOF, "Probe failed.\n");
 	return error;
 }
@@ -3261,7 +3278,6 @@ static void tof_remove(struct i2c_client *client)
 		tof8801_registered_driver.sysfs_registered = FALSE;
 	}
 	if(tof8801_registered_driver.dev_registered){
-		i2c_set_clientdata(client, NULL);
 		input_unregister_device(chip->obj_input_dev);
 		tof8801_registered_driver.dev_registered = FALSE;
 	}

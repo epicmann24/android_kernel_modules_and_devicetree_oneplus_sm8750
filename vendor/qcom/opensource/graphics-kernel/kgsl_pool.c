@@ -63,16 +63,19 @@ static void _pool_entry_free(void *element, void *arg)
 static int
 __kgsl_pool_add_page(struct kgsl_page_pool *pool, struct page *p)
 {
+        int ret = 0;
 	struct rb_node **node, *parent = NULL;
 	struct kgsl_pool_page_entry *new_page, *entry;
 	gfp_t gfp_mask = GFP_KERNEL & ~__GFP_DIRECT_RECLAIM;
 
+        spin_lock(&pool->list_lock);
 	new_page = pool->mempool ? mempool_alloc(pool->mempool, gfp_mask) :
 			kmem_cache_alloc(addr_page_cache, gfp_mask);
-	if (new_page == NULL)
-		return -ENOMEM;
+	if (new_page == NULL) {
+                ret = -ENOMEM;
+		goto done;
+        }
 
-	spin_lock(&pool->list_lock);
 	node = &pool->pool_rbtree.rb_node;
 	new_page->physaddr = page_to_phys(p);
 	new_page->page = p;
@@ -96,9 +99,10 @@ __kgsl_pool_add_page(struct kgsl_page_pool *pool, struct page *p)
 	 */
 	ASSERT_EXCLUSIVE_WRITER(pool->page_count);
 	WRITE_ONCE(pool->page_count, pool->page_count + 1);
+done:
 	spin_unlock(&pool->list_lock);
 
-	return 0;
+	return ret;
 }
 
 static struct page *

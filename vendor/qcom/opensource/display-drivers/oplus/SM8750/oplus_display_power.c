@@ -22,9 +22,6 @@ PANEL_VOLTAGE_BAK panel_vol_bak[PANEL_VOLTAGE_ID_MAX] = {{0}, {0}, {2, 0, 1, 2, 
 u32 panel_pwr_vg_base = 0;
 struct notifier_block psy_nb = {0};
 
-extern int oplus_request_power_status;
-DEFINE_MUTEX(oplus_power_status_lock);
-
 int oplus_panel_parse_power_config(struct dsi_panel *panel)
 {
 	int rc = 0, i = 0;
@@ -258,23 +255,17 @@ int oplus_display_panel_set_pwr(void *data)
 	return rc;
 }
 
-int __oplus_set_request_power_status(int status)
-{
-	mutex_lock(&oplus_power_status_lock);
-
-	if (status != oplus_request_power_status) {
-		oplus_request_power_status = status;
-	}
-
-	mutex_unlock(&oplus_power_status_lock);
-	return 0;
-}
-
 int oplus_display_panel_get_power_status(void *data) {
 	uint32_t *power_status = data;
+	struct dsi_display *display = oplus_display_get_current_display();
 
-	OPLUS_DSI_INFO("oplus_display_get_power_status = %d\n", __oplus_get_power_status());
-	(*power_status) = __oplus_get_power_status();
+	if (!display || !display->panel) {
+		OPLUS_DSI_ERR("display is null or display->panel is null\n");
+		return -EINVAL;
+	}
+
+	OPLUS_DSI_INFO("oplus_display_get_power_status = %d\n", display->panel->power_mode);
+	(*power_status) = display->panel->power_mode;
 
 	return 0;
 }
@@ -283,7 +274,6 @@ int oplus_display_panel_set_power_status(void *data) {
 	uint32_t *temp_save = data;
 
 	OPLUS_DSI_INFO("oplus_display_set_power_status = %d\n", (*temp_save));
-	__oplus_set_request_power_status((*temp_save));
 
 	return 0;
 }
@@ -1197,6 +1187,8 @@ bool oplus_panel_pre_prepare(struct dsi_panel *panel)
 	if (panel->oplus_panel.need_trigger_event) {
 		oplus_panel_event_data_notifier_trigger(panel, DRM_PANEL_EVENT_UNBLANK, 0, true);
 	}
+
+	panel->oplus_panel.power_mode_early = SDE_MODE_DPMS_ON;
 
 	if (panel->oplus_panel.panel_reset_position == PANEL_RESET_POSITION1) {
 		return true;

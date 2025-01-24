@@ -72,8 +72,8 @@
 #define TOF8806_FACTORY_CAL_CMD_SIZE     14
 #define TMF8806_FACTORY_CALIB_KITERS     40960 // kilo iterations for factory calibration
 
-#define TMF8806_OSC_MIN_TRIM_VAL  -256
-#define TMF8806_OSC_MAX_TRIM_VAL   255
+#define TMF8806_OSC_MIN_TRIM_VAL  0
+#define TMF8806_OSC_MAX_TRIM_VAL  511
 #define TMF8806_IMAGE_START 0x20000000
 //#define AMS_OEM_MUTEX_DEBUG
 #ifdef AMS_OEM_MUTEX_DEBUG
@@ -187,6 +187,7 @@ extern void cam_tmf8806_driver_exit(void);
 int do_tmf8806_power_down(tmf8806_chip *chip);
 extern int wait_for_tmf8806_ready(void);
 extern int tmf8806_stop(void);
+extern void tmf8806_clean(void);
 int tmf8806_switch_apps(tmf8806_chip *chip, char req_app_id);
 int tmf8806_oem_start(void);
 #endif

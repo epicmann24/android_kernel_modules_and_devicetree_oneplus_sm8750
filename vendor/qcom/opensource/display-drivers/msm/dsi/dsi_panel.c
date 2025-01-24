@@ -1663,8 +1663,6 @@ static int dsi_panel_parse_qsync_caps(struct dsi_panel *panel,
 				qsync_caps->qsync_min_fps_list[i];
 	}
 
-	qsync_caps->level_te = utils->read_bool(utils->data, "qcom,qsync-level-te");
-
 qsync_support:
 	/* allow qsync support only if DFPS is with VFP approach */
 	if ((panel->dfps_caps.dfps_support) &&
@@ -5223,7 +5221,10 @@ int dsi_panel_set_nolp(struct dsi_panel *panel)
 	}
 
 #ifdef OPLUS_FEATURE_DISPLAY
-	DSI_INFO("debug for dsi_panel_set_nolp\n");
+	if (oplus_display_ops.panel_set_nolp_pre) {
+		oplus_display_ops.panel_set_nolp_pre(panel);
+	}
+
 #endif /* OPLUS_FEATURE_DISPLAY */
 
 	mutex_lock(&panel->panel_lock);
@@ -5244,8 +5245,8 @@ int dsi_panel_set_nolp(struct dsi_panel *panel)
 		       panel->name, rc);
 
 #ifdef OPLUS_FEATURE_DISPLAY
-	if (oplus_display_ops.panel_set_nolp) {
-		oplus_display_ops.panel_set_nolp(panel);
+	if (oplus_display_ops.panel_set_nolp_post) {
+		oplus_display_ops.panel_set_nolp_post(panel);
 	}
 #endif /* OPLUS_FEATURE_DISPLAY */
 
@@ -5700,11 +5701,14 @@ int dsi_panel_enable(struct dsi_panel *panel)
 		return -EINVAL;
 	}
 
-#ifdef OPLUS_FEATURE_DISPLAY
-	DSI_INFO("%s\n", __func__);
-#endif /* OPLUS_FEATURE_DISPLAY */
-
 	mutex_lock(&panel->panel_lock);
+
+#ifdef OPLUS_FEATURE_DISPLAY
+	if(oplus_display_ops.panel_enable_pre) {
+		oplus_display_ops.panel_enable_pre(panel);
+	}
+
+#endif /* OPLUS_FEATURE_DISPLAY */
 
 	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_ON, false);
 	if (rc) {

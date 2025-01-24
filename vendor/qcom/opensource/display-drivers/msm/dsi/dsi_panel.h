@@ -99,7 +99,6 @@ struct dsi_qsync_capabilities {
 	u32 qsync_min_fps;
 	u32 *qsync_min_fps_list;
 	int qsync_min_fps_list_len;
-	bool level_te;
 };
 
 struct dsi_avr_capabilities {

@@ -597,6 +597,9 @@ _fixed_srcs = [
     "core/hdd/src/wlan_hdd_tx_rx.c",
     "core/hdd/src/wlan_hdd_wmm.c",
     "core/hdd/src/wlan_hdd_wowl.c",
+    #ifdef OPLUS_FEATURE_WIFI_BEAM_SWITCH
+    "core/hdd/src/wlan_hdd_beam_switch.c",
+    #endif /* OPLUS_FEATURE_WIFI_BEAM_SWITCH */
     "core/mac/src/dph/dph_hash_table.c",
     "core/mac/src/pe/lim/lim_admit_control.c",
     "core/mac/src/pe/lim/lim_api.c",
@@ -2398,7 +2401,7 @@ def _define_module_for_target_variant_chipset(target, variant, chipset):
         kconfig = kconfig,
         defconfig = defconfig,
         #ifdef OPLUS_FEATURE_WIFI_FTM
-        local_defines = ["OPLUS_FEATURE_WIFI_BDF", "OPLUS_FEATURE_WIFI_MAC", "OPLUS_FEATURE_WIFI_FTM", "OPLUS_FEATURE_WIFI_DCS_SWITCH", "OPLUS_BUG_STABILITY", "OPLUS_FEATURE_WIFI_VENDOR_FT", "OPLUS_FEATURE_CONN_POWER_MONITOR"],
+        local_defines = ["OPLUS_FEATURE_WIFI_BDF", "OPLUS_FEATURE_WIFI_MAC", "OPLUS_FEATURE_WIFI_FTM", "OPLUS_FEATURE_WIFI_DCS_SWITCH", "OPLUS_BUG_STABILITY", "OPLUS_FEATURE_WIFI_VENDOR_FT", "OPLUS_FEATURE_CONN_POWER_MONITOR", "OPLUS_FEATURE_WIFI_BEAM_SWITCH"],
         #endif /* OPLUS_FEATURE_WIFI_FTM */
         conditional_srcs = _conditional_srcs,
         copts = copts,

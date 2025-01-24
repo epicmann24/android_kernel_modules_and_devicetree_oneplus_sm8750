@@ -245,6 +245,9 @@ const char *cmd_set_prop_map[DSI_CMD_SET_MAX] = {
 	"qcom,mdss-dsi-uir-loading-effect-2-command",
 	"qcom,mdss-dsi-uir-loading-effect-3-command",
 	"qcom,mdss-dsi-set-dc-on-command",
+	"oplus,dsi-panel-gamma-compensation-page0-command",
+	"oplus,dsi-panel-gamma-compensation-page1-command",
+	"oplus,dsi-panel-gamma-compensation-command",
 #endif /* OPLUS_FEATURE_DISPLAY */
 };
 
@@ -470,6 +473,9 @@ const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
 	"qcom,mdss-dsi-uir-loading-effect-2-command-state",
 	"qcom,mdss-dsi-uir-loading-effect-3-command-state",
 	"qcom,mdss-dsi-set-dc-on-command-state",
+	"oplus,dsi-panel-gamma-compensation-page0-command-state",
+	"oplus,dsi-panel-gamma-compensation-page1-command-state",
+	"oplus,dsi-panel-gamma-compensation-command-state",
 #endif /* OPLUS_FEATURE_DISPLAY */
 };
 
@@ -758,10 +764,68 @@ int oplus_panel_cmd_reg_replace(struct dsi_panel *panel, enum dsi_cmd_set_type t
 	return 0;
 }
 
-int oplus_panel_cmdq_pack_handle(void *dsi_panel, enum dsi_cmd_set_type type, bool before_cmd)
+int oplus_panel_cmd_reg_replace_specific_row(struct dsi_panel *panel, struct dsi_display_mode *mode,
+		enum dsi_cmd_set_type type, u8 *replace_reg, size_t replace_reg_len, u32 row)
+{
+	int rc = 0;
+	struct dsi_cmd_desc *cmds = NULL;
+	size_t tx_len = 0;
+	u8 *tx_buf = NULL;
+	u32 count = 0;
+	u8 *payload = NULL;
+	u32 size = 0;
+	u32 index = 0;
+
+	if(!panel) {
+		OPLUS_DSI_ERR("invalid display panel\n");
+		return -ENODEV;
+	}
+	if(!replace_reg) {
+		OPLUS_DSI_ERR("invalid cmd reg\n");
+		return -ENODEV;
+	}
+
+	if (!mode) {
+		OPLUS_DSI_INFO("mode is null, use panel cur_mode\n");
+		mode = panel->cur_mode;
+	}
+	cmds = mode->priv_info->cmd_sets[type].cmds;
+	count = mode->priv_info->cmd_sets[type].count;
+
+	if (row > count) {
+		OPLUS_DSI_ERR("Exceeding the number of rows of the command\n");
+		return -EFAULT;
+	}
+	index = row - 1;
+
+	tx_len = cmds[index].msg.tx_len;
+	tx_buf = (u8 *)cmds[index].msg.tx_buf;
+	if ((tx_len - 1) != replace_reg_len) {
+		tx_len = replace_reg_len + 1;
+		size = tx_len * sizeof(u8);
+		payload = kzalloc(size, GFP_KERNEL);
+		if (!payload) {
+			rc = -ENOMEM;
+			return rc;
+		}
+		payload[0] = tx_buf[0];
+		if (tx_buf) {
+			kfree(tx_buf);
+		}
+		tx_buf = payload;
+		cmds[index].msg.tx_len = tx_len;
+	}
+	tx_buf++;
+	memcpy(tx_buf, replace_reg, replace_reg_len);
+
+	return 0;
+}
+
+int oplus_panel_cmdq_sync_handle(void *dsi_panel, enum dsi_cmd_set_type type, bool before_cmd)
 {
 	struct dsi_panel *panel = dsi_panel;
 	struct dsi_display_mode *mode;
+	int count = 0;
 
 	OPLUS_DSI_DEBUG("start\n");
 
@@ -771,36 +835,39 @@ int oplus_panel_cmdq_pack_handle(void *dsi_panel, enum dsi_cmd_set_type type, bo
 	}
 	mode = panel->cur_mode;
 
-	if(!panel->oplus_panel.cmdq_pack_support || !mode->priv_info->cmd_sets[type].oplus_cmd_set.pack) {
+	if(!panel->oplus_panel.cmdq_sync_support || !mode->priv_info->cmd_sets[type].oplus_cmd_set.sync_count) {
 		return 0;
 	}
 
-	OPLUS_DSI_TRACE_BEGIN("oplus_panel_cmdq_pack_handle");
+	OPLUS_DSI_TRACE_BEGIN("oplus_panel_cmdq_sync_handle");
 	OPLUS_DSI_TRACE_INT("oplus_dsi_cmd_set_type", type);
 	OPLUS_DSI_TRACE_INT("before_cmd", before_cmd);
 
 	if (before_cmd) {
-		if (panel->oplus_panel.cmdq_pack_state) {
-			OPLUS_DSI_INFO("[%s] dsi_cmd: %s block to the next frame\n",
+		if (panel->oplus_panel.cmdq_sync_count) {
+			OPLUS_DSI_INFO("[%s] dsi_cmd: %s block to the next %d frame\n",
 					panel->oplus_panel.vendor_name,
-					cmd_set_prop_map[type]);
+					cmd_set_prop_map[type],
+					panel->oplus_panel.cmdq_sync_count);
 			oplus_sde_early_wakeup(panel);
-			oplus_wait_for_vsync(panel);
-			if (panel->cur_mode->timing.refresh_rate == 60) {
-				oplus_need_to_sync_te(panel);
+			for (count = panel->oplus_panel.cmdq_sync_count; count > 0; count--) {
+				oplus_wait_for_vsync(panel);
+				if (panel->cur_mode->timing.refresh_rate == 60) {
+					oplus_need_to_sync_te(panel);
+				}
 			}
 		}
 	} else {
-		panel->oplus_panel.cmdq_pack_state = true;
+		panel->oplus_panel.cmdq_sync_count = mode->priv_info->cmd_sets[type].oplus_cmd_set.sync_count;
 	}
 
-	OPLUS_DSI_TRACE_END("oplus_panel_cmdq_pack_handle");
+	OPLUS_DSI_TRACE_END("oplus_panel_cmdq_sync_handle");
 	OPLUS_DSI_DEBUG("end\n");
 
 	return 0;
 }
 
-int oplus_panel_cmdq_pack_status_reset(void *sde_connector)
+int oplus_panel_cmdq_sync_count_reset(void *sde_connector)
 {
 	struct sde_connector *c_conn = sde_connector;
 	struct dsi_display *display = NULL;
@@ -813,7 +880,7 @@ int oplus_panel_cmdq_pack_status_reset(void *sde_connector)
 	}
 
 	if (c_conn->connector_type != DRM_MODE_CONNECTOR_DSI) {
-		OPLUS_DSI_DEBUG("not in dsi mode, should not reset cmdq pack status\n");
+		OPLUS_DSI_DEBUG("not in dsi mode, should not reset cmdq sync status\n");
 		return 0;
 	}
 
@@ -823,15 +890,55 @@ int oplus_panel_cmdq_pack_status_reset(void *sde_connector)
 		return -EINVAL;
 	}
 
-	if(!display->panel->oplus_panel.cmdq_pack_support) {
+	if(!display->panel->oplus_panel.cmdq_sync_support) {
 		return 0;
 	}
 
-	display->panel->oplus_panel.cmdq_pack_state = false;
+	display->panel->oplus_panel.cmdq_sync_count = 0;
 
-	OPLUS_DSI_DEBUG("cmdq pack state is %d\n", display->panel->oplus_panel.cmdq_pack_state);
-	SDE_ATRACE_INT("oplus_panel_cmdq_pack_status_reset",
-			display->panel->oplus_panel.cmdq_pack_state);
+	OPLUS_DSI_DEBUG("cmdq sync count is %d\n", display->panel->oplus_panel.cmdq_sync_count);
+	SDE_ATRACE_INT("oplus_panel_cmdq_sync_count_reset",
+			display->panel->oplus_panel.cmdq_sync_count);
+
+	OPLUS_DSI_DEBUG("end\n");
+
+	return 0;
+}
+
+int oplus_panel_cmdq_sync_count_decrease(void *sde_connector)
+{
+	struct sde_connector *c_conn = sde_connector;
+	struct dsi_display *display = NULL;
+
+	OPLUS_DSI_DEBUG("start\n");
+
+	if (!c_conn) {
+		OPLUS_DSI_ERR("invalid c_conn param\n");
+		return -EINVAL;
+	}
+
+	if (c_conn->connector_type != DRM_MODE_CONNECTOR_DSI) {
+		OPLUS_DSI_DEBUG("not in dsi mode, should not reset cmdq sync count\n");
+		return 0;
+	}
+
+	display = c_conn->display;
+	if (!display || !display->panel) {
+		OPLUS_DSI_DEBUG("invalid display params\n");
+		return -EINVAL;
+	}
+
+	if(!display->panel->oplus_panel.cmdq_sync_support) {
+		return 0;
+	}
+
+	if (display->panel->oplus_panel.cmdq_sync_count > 0) {
+		display->panel->oplus_panel.cmdq_sync_count--;
+	}
+
+	OPLUS_DSI_DEBUG("cmdq sync count is %d\n", display->panel->oplus_panel.cmdq_sync_count);
+	SDE_ATRACE_INT("oplus_panel_cmdq_sync_count_decrease",
+			display->panel->oplus_panel.cmdq_sync_count);
 
 	OPLUS_DSI_DEBUG("end\n");
 

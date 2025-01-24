@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2016-2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -2505,6 +2505,26 @@ void dp_rx_update_stats(struct dp_soc *soc, qdf_nbuf_t nbuf)
 }
 #endif
 
+#ifdef DP_OFFLOAD_FRAME_WITH_SW_EXCEPTION
+/**
+ * dp_check_rx_from_reo_excpt() - Check nbuf coming for offload
+ * @nbuf: nbuf received
+ *
+ * Return: sw_exception indicate flag
+ */
+static inline
+uint8_t dp_check_rx_from_reo_excpt(qdf_nbuf_t nbuf)
+{
+	return qdf_nbuf_get_rx_reo_dest_ind_or_sw_excpt(nbuf);
+}
+#else
+static inline
+uint8_t dp_check_rx_from_reo_excpt(qdf_nbuf_t nbuf)
+{
+	return 0;
+}
+#endif
+
 /**
  * dp_rx_cksum_offload() - set the nbuf checksum as defined by hardware.
  * @pdev: dp_pdev handle
@@ -2526,39 +2546,40 @@ void dp_rx_cksum_offload(struct dp_pdev *pdev,
 	//TODO - Move this to ring desc api
 	//HAL_RX_MSDU_DESC_IP_CHKSUM_FAIL_GET
 	//HAL_RX_MSDU_DESC_TCP_UDP_CHKSUM_FAIL_GET
-	uint32_t ip_csum_err, tcp_udp_csum_er;
+	uint32_t ip_csum_err, tcp_udp_csum_er, ip_frag;
+
+	/* Mark all packets coming from FW offload path as unchecked */
+	if (qdf_unlikely(dp_check_rx_from_reo_excpt(nbuf)))
+		goto bypass_tcp_udp;
 
 	hal_rx_tlv_csum_err_get(pdev->soc->hal_soc, rx_tlv_hdr, &ip_csum_err,
-				&tcp_udp_csum_er);
+				&tcp_udp_csum_er, &ip_frag);
 
-	if (qdf_nbuf_is_ipv4_pkt(nbuf)) {
-		if (qdf_likely(!ip_csum_err)) {
+	if (qdf_unlikely(ip_frag))
+		goto bypass_tcp_udp;
+
+	if (qdf_unlikely(ip_csum_err)) {
+		DP_STATS_INC(pdev, err.ip_csum_err, 1);
+		goto bypass_tcp_udp;
+	}
+
+	if (qdf_nbuf_is_ipv4_udp_pkt(nbuf) ||
+	    qdf_nbuf_is_ipv4_tcp_pkt(nbuf)) {
+		if (qdf_likely(!tcp_udp_csum_er)) {
 			cksum.l4_result = QDF_NBUF_RX_CKSUM_TCP_UDP_UNNECESSARY;
-			if (qdf_nbuf_is_ipv4_udp_pkt(nbuf) ||
-			    qdf_nbuf_is_ipv4_tcp_pkt(nbuf)) {
-				if (qdf_likely(!tcp_udp_csum_er)) {
-					cksum.csum_level = 1;
-				} else {
-					cksum.l4_result =
-						QDF_NBUF_RX_CKSUM_NONE;
-					DP_STATS_INC(pdev,
-						     err.tcp_udp_csum_err, 1);
-				}
-			}
+			cksum.csum_level = 1;
 		} else {
-			DP_STATS_INC(pdev, err.ip_csum_err, 1);
+		    DP_STATS_INC(pdev, err.tcp_udp_csum_err, 1);
 		}
 	} else if (qdf_nbuf_is_ipv6_udp_pkt(nbuf) ||
 		   qdf_nbuf_is_ipv6_tcp_pkt(nbuf)) {
-		if (qdf_likely(!ip_csum_err && !tcp_udp_csum_er))
+		if (qdf_likely(!tcp_udp_csum_er))
 			cksum.l4_result = QDF_NBUF_RX_CKSUM_TCP_UDP_UNNECESSARY;
-		else if (ip_csum_err) {
-			DP_STATS_INC(pdev, err.ip_csum_err, 1);
-		} else {
+		else
 			DP_STATS_INC(pdev, err.tcp_udp_csum_err, 1);
-		}
 	}
 
+bypass_tcp_udp:
 	qdf_nbuf_set_rx_cksum(nbuf, &cksum);
 }
 #else

@@ -225,10 +225,6 @@ else:
 options = webdriver.ChromeOptions()
 options.add_argument(r'--user-data-dir=D:\jenkins\gki\User Data')
 
-#options.add_argument(r'--user-data-dir=/work/oplus_80349759/gki/UserData/Default')
-#options.add_argument(r'--user-data-dir=/work/oplus_80349759/.config/google-chrome/Default')
-#prefs = {"download.default_directory":"D:\jenkins\gki",'safebrowsing.enabled': False,}
-
 prefs = {"download.default_directory":os.getcwd(),'safebrowsing.enabled': False,}
 options.add_experimental_option("prefs", prefs)
 #options.add_argument("--remote-debugging-port=9222") 

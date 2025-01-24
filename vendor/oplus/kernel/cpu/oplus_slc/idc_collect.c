@@ -185,6 +185,7 @@ static struct task_struct *indicator_collect_thread_oneshot;
 static char indicator_collect_enable;
 static unsigned int idc_blocklistmap;
 static struct timer_list idc_timer;
+static unsigned int uah_parm[3];
 
 static void idc_slc_info(struct indicator_data *data)
 {
@@ -606,11 +607,28 @@ static const struct proc_ops idc_enable_proc_ops = {
 	.proc_lseek			 = seq_lseek,
 };
 
+static int idc_info_proc_show(struct seq_file *m, void *v)
+{
+        seq_printf(m, "indicator_collect_enable %d\n", indicator_collect_enable);
+        seq_printf(m, "idc_debug %d\n", idc_debug);
+        seq_printf(m, "idc_blocklistmap 0x%x\n", idc_blocklistmap);
+        return 0;
+}
+
+static int idc_info_proc_open(struct inode *inode, struct file *file)
+{
+        return single_open(file, idc_info_proc_show, pde_data(inode));
+}
+
+static const struct proc_ops idc_info_proc_ops = {
+        .proc_open      = idc_info_proc_open,
+        .proc_read      = seq_read,
+        .proc_lseek     = seq_lseek,
+};
+
 static int idc_ctrl_proc_show(struct seq_file *m, void *v)
 {
-	seq_printf(m, "indicator_collect_enable %d\n", indicator_collect_enable);
-	seq_printf(m, "idc_debug %d\n", idc_debug);
-	seq_printf(m, "idc_blocklistmap 0x%x\n", idc_blocklistmap);
+	seq_printf(m, "%u %u %u\n", uah_parm[0], uah_parm[1], uah_parm[2]);
 	return 0;
 }
 
@@ -636,6 +654,10 @@ static ssize_t idc_ctrl_proc_write(struct file *file, const char __user *buf, si
 		return -EINVAL;
 	}
 
+	uah_parm[0] = val_1;
+	uah_parm[1] = val_2;
+	uah_parm[2] = val_3;
+
 	if (val_1 == 1) {
 		pr_info("[%s] block list, ret %d\n", __func__, ret);
 		if (val_3 == 1)
@@ -649,16 +671,17 @@ static ssize_t idc_ctrl_proc_write(struct file *file, const char __user *buf, si
 }
 
 static const struct proc_ops idc_ctrl_proc_ops = {
-	.proc_write			 = idc_ctrl_proc_write,
-	.proc_open		  = idc_ctrl_proc_open,
-	.proc_read		  = seq_read,
-	.proc_lseek			 = seq_lseek,
+	.proc_write	= idc_ctrl_proc_write,
+	.proc_open	= idc_ctrl_proc_open,
+	.proc_read	= seq_read,
+	.proc_lseek	= seq_lseek,
 };
 
 static void create_proc(struct proc_dir_entry *parent_dir)
 {
 	proc_create_data("idc_enable", 0664, parent_dir, &idc_enable_proc_ops, NULL);
 	proc_create_data("idc_ctrl", 0664, parent_dir, &idc_ctrl_proc_ops, NULL);
+	proc_create_data("idc_info", 0444, parent_dir, &idc_info_proc_ops, NULL);
 }
 
 int oplus_slc_indicator_init(struct proc_dir_entry *parent_dir)

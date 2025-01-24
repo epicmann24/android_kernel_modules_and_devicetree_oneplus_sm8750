@@ -167,15 +167,6 @@ def define_oplus_local_modules():
         includes = ["."],
         )
 
-    define_oplus_ddk_module(
-        name = "oplus_bsp_look_around",
-        srcs = native.glob([
-            "**/*.h",
-            "memload_opt/look_around/look_around.c",
-        ]),
-        includes = ["."],
-        )
-
     ddk_copy_to_dist_dir(
         name = "oplus_bsp_mm",
         module_list = [
@@ -191,7 +182,7 @@ def define_oplus_local_modules():
             "oplus_bsp_dynamic_readahead",
             "oplus_bsp_pcppages_opt",
             "oplus_bsp_kswapd_opt",
-            "oplus_bsp_look_around",
+#            "oplus_bsp_look_around",
             "oplus_bsp_memleak_detect",
         ],
     )

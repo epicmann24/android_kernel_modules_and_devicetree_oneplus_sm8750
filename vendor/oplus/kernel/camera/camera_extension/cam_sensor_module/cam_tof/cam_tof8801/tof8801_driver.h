@@ -158,6 +158,7 @@ extern int tof_wait_for_cpu_ready_timeout(struct i2c_client *client, unsigned lo
 extern void tof_dump_i2c_regs(struct tof_sensor_chip * chip, char offset, char end);
 extern int wait_for_tof8801_ready(void);
 extern int tof8801_stop(void);
+extern void tof8801_clean(void);
 extern int tof_reset(void);
 extern int tof_oem_start(void);
 

@@ -1083,15 +1083,6 @@ int dsi_display_check_status(struct drm_connector *connector, void *display,
 	if (atomic_read(&panel->esd_recovery_pending))
 		goto release_panel_lock;
 
-#ifdef OPLUS_FEATURE_DISPLAY
-	if (oplus_display_ops.display_check_status_pre) {
-		if (oplus_display_ops.display_check_status_pre(panel)) {
-			DSI_WARN("Skip the check because esd is pending\n");
-			goto release_panel_lock;
-		}
-	}
-#endif /* OPLUS_FEATURE_DISPLAY */
-
 	status_mode = panel->esd_config.status_mode;
 
 	if ((status_mode == ESD_MODE_SW_SIM_SUCCESS) || is_sim_panel(display))
@@ -7112,7 +7103,6 @@ int dsi_display_get_info(struct drm_connector *connector,
 	info->is_te_using_watchdog_timer = is_sim_panel(display);
 	info->event_notification_disabled = display->panel->event_notification_disabled;
 	info->disable_cesta_hw_sleep = display->panel->disable_cesta_hw_sleep;
-	info->level_te = display->panel->qsync_caps.level_te;
 
 	switch (display->panel->panel_mode) {
 	case DSI_OP_VIDEO_MODE:

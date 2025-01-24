@@ -9,3 +9,9 @@ config OPLUS_FEATURE_CPU_GAME
 	default n
 	help
 	  oplus game module. Features from oplus game team can be added here.
+
+config MTK_ENGINE_COOLER_DISABLE
+	bool "disable mtk_game features by chipset"
+	default n
+	help
+	  use this macro to disable mtk_game feature by chipset.

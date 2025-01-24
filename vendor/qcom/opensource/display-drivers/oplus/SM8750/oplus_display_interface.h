@@ -18,6 +18,8 @@
 #include "oplus_display_utils.h"
 #include "oplus_display_sysfs_attrs.h"
 
+#define INTO_OUT_AOD_INTERVOL (45*1000)
+
 struct oplus_display_ops {
 	/* backlight update */
 	int (*panel_parse_bl_config_post)(struct dsi_panel *panel);
@@ -53,6 +55,7 @@ struct oplus_display_ops {
 	void (*display_enable_pre)(struct dsi_display *display);
 	void (*display_enable_mid)(struct dsi_display *display);
 	void (*display_enable_post)(struct dsi_display *display);
+	int (*panel_enable_pre)(struct dsi_panel *panel);
 	int (*panel_enable_post)(struct dsi_panel *panel);
 	void (*panel_init)(struct dsi_panel *panel);
 	int (*panel_set_pinctrl_state)(struct dsi_panel *panel, bool enable);
@@ -108,7 +111,8 @@ struct oplus_display_ops {
 	/* aod */
 	void (*panel_set_lp1)(struct dsi_panel *panel);
 	void (*panel_set_lp2)(struct dsi_panel *panel);
-	void (*panel_set_nolp)(struct dsi_panel *panel);
+	void (*panel_set_nolp_pre)(struct dsi_panel *panel);
+	void (*panel_set_nolp_post)(struct dsi_panel *panel);
 };
 
 extern struct oplus_display_ops oplus_display_ops;

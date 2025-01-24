@@ -211,7 +211,7 @@ static ssize_t chip_enable_store(struct kobject *kobj, struct kobj_attribute * a
 		AMS_MUTEX_UNLOCK(&chip->lock);
 		return -EIO;
 	}
-	CAM_EXT_ERR(CAM_EXT_TOF, "capture enable =  %d\n", capture);
+	CAM_EXT_INFO(CAM_EXT_TOF, "capture enable =  %d\n", capture);
 
 	if (capture == 0) {
 		if(g_is_alread_runing == 0) {
@@ -234,8 +234,10 @@ static ssize_t chip_enable_store(struct kobject *kobj, struct kobj_attribute * a
 				CAM_EXT_ERR(CAM_EXT_TOF, "Stop Measurement fail");
 			}
 		}
-		enablePinLow(chip);
+		// enablePinLow(chip);
+		tmf8806_stop();
 	}else {
+		g_tof8806_sensor_chip->tof_core.measureConfig.data.command = 0;
 		if(g_is_alread_runing) {
 			AMS_MUTEX_UNLOCK(&chip->lock);
 			return 0;
@@ -578,9 +580,9 @@ ssize_t tmf8806_app0_cmd_store(struct kobject *kobj, struct kobj_attribute *attr
 {
 	tmf8806_chip *chip = g_tof8806_sensor_chip;
 	ssize_t ret = count;
-	int8_t error;
+	int8_t error = APP_SUCCESS_OK;
 	char bytes[TOF8806_APP0_CMD_IDX];
-
+	uint32_t tmpIterations = 0;  //Temporary variable to store iterations from userspace
 	CAM_EXT_INFO(CAM_EXT_TOF, "%s cmd: %s buf: %s \n", __func__, attr->attr.name, buf);
 
 	AMS_MUTEX_LOCK(&chip->data_lock);
@@ -588,15 +590,27 @@ ssize_t tmf8806_app0_cmd_store(struct kobject *kobj, struct kobj_attribute *attr
 	if (!strncmp(attr->attr.name,"capture", strlen(attr->attr.name)))
 	{
 		//only for capture attr start and stop measurement
-		ret = sscanf(buf, "%hhx", &chip->tof_core.measureConfig.data.command);
+		uint8_t capture_status = 0;
+		ret = sscanf(buf, "%hhx", &capture_status);
+
+		//ret = sscanf(buf, "%hhx", &chip->tof_core.measureConfig.data.command);
+		CAM_EXT_INFO(CAM_EXT_TOF, "sscanf ret %d capture_status:%d", ret, capture_status);
 		if (ret == 1) {
-			if (chip->tof_core.measureConfig.data.command > 0) {
-				chip->xtalk_peak = 0;
-				chip->xtalk_count = 0;
-				error = tmf8806StartMeasurement(&chip->tof_core);
-			}
-			else {
+			if (capture_status) {
+				if (chip->tof_core.measureConfig.data.command == 0) {
+					chip->xtalk_peak = 0;
+					chip->xtalk_count = 0;
+					chip->tof_core.measureConfig.data.command = capture_status;
+					error = tmf8806StartMeasurement(&chip->tof_core);
+					CAM_EXT_INFO(CAM_EXT_TOF, "tmf8806StartMeasurement result %d", error);
+				} else {
+					error = APP_SUCCESS_OK;
+					CAM_EXT_INFO(CAM_EXT_TOF, "tmf8806StartMeasurement return ok directly");
+				}
+			} else {
+				chip->tof_core.measureConfig.data.command = 0;
 				error = tmf8806StopMeasurement(&chip->tof_core);
+				CAM_EXT_INFO(CAM_EXT_TOF, "tmf8806StopMeasurement result %d", error);
 			}
 			if (error != APP_SUCCESS_OK) {
 				AMS_MUTEX_UNLOCK(&chip->data_lock);
@@ -605,7 +619,8 @@ ssize_t tmf8806_app0_cmd_store(struct kobject *kobj, struct kobj_attribute *attr
 		}
 	}
 	else if (!strncmp(attr->attr.name,"iterations", strlen(attr->attr.name))) {
-		ret = sscanf(buf, "%hu",  &chip->tof_core.measureConfig.data.kIters);
+		ret = sscanf(buf, "%u",  &tmpIterations);
+		chip->tof_core.measureConfig.data.kIters = tmpIterations/1000;
 	}
 	else if (!strncmp(attr->attr.name,"period", strlen(attr->attr.name))) {
 		ret = sscanf(buf, "%hhu", &chip->tof_core.measureConfig.data.repetitionPeriodMs);
@@ -945,7 +960,7 @@ static ssize_t app0_osc_trim_store(struct kobject *kobj, struct kobj_attribute *
 		return -EINVAL;
 
 	if ((trim > TMF8806_OSC_MAX_TRIM_VAL) || (trim < TMF8806_OSC_MIN_TRIM_VAL)) {
-		CAM_EXT_ERR(CAM_EXT_TOF, "%s: Error clk trim setting is out of range [%d,%d]\n", __func__, -256, 255);
+		CAM_EXT_ERR(CAM_EXT_TOF, "%s: Error clk trim setting is out of range [%d,%d]\n", __func__, 1, 511);
 		return -EINVAL;
 	}
 
@@ -1285,6 +1300,30 @@ int tmf8806_stop(void)
 	return 0;
 }
 EXPORT_SYMBOL(tmf8806_stop);
+
+void tmf8806_clean(void)
+{
+	tmf8806_chip *chip = g_tof8806_sensor_chip;
+
+	if (NULL != chip && is_8806_alread_probe) {
+
+		if (chip->tof_core.measureConfig.data.command != 0) {
+			chip->tof_core.measureConfig.data.command = 0;
+			tmf8806StopMeasurement(&chip->tof_core);
+		}
+
+		if (chip->poll_period && irq_thread_status) {
+			(void)kthread_stop(chip->app0_poll_irq);
+			irq_thread_status = 0;
+		}
+
+		g_is_alread_runing = 0;
+
+		do_tmf8806_power_down(chip);
+	}
+}
+EXPORT_SYMBOL(tmf8806_clean);
+
 static int tmf8806_input_dev_open(struct input_dev *dev)
 {
 	tmf8806_chip *chip = input_get_drvdata(dev);
@@ -1344,10 +1383,30 @@ int wait_for_tmf8806_ready(void)
 			CAM_EXT_ERR(CAM_EXT_TOF, "I2C communication failure,CPU is not ready.\n");
 			goto gen_err;
 		}
-		is_8806_alread_probe = 1 ;
-
-		CAM_EXT_INFO(CAM_EXT_TOF, "Caemra Tof iic Probe ok.\n");
 		if(is_8806chipid_matched){
+			is_8806_alread_probe = 1 ;
+			CAM_EXT_INFO(CAM_EXT_TOF, "Caemra Tof iic communication ok.\n");
+			//set input device
+			if(tof8806_registered_driver.dev_registered == FALSE){
+				chip->obj_input_dev = devm_input_allocate_device(&client->dev);
+				if (chip->obj_input_dev == NULL) {
+					CAM_EXT_ERR(CAM_EXT_TOF, "Error allocating input_dev.\n");
+					goto input_dev_alloc_err;
+				}
+				chip->obj_input_dev->name = chip->pdata->tof_name;
+				chip->obj_input_dev->id.bustype = BUS_I2C;
+				input_set_drvdata(chip->obj_input_dev, chip);
+				chip->obj_input_dev->open = tmf8806_input_dev_open;
+				set_bit(EV_ABS, chip->obj_input_dev->evbit);
+				input_set_abs_params(chip->obj_input_dev, ABS_DISTANCE, 0, 0xFF, 0, 0);
+				error = input_register_device(chip->obj_input_dev);
+				tof8806_registered_driver.dev_registered = TRUE;
+				if (error) {
+					CAM_EXT_ERR(CAM_EXT_TOF, "Error registering input_dev.\n");
+					goto input_reg_err;
+				}
+				CAM_EXT_INFO(CAM_EXT_TOF, " register input_dev.\n");
+			}
 			if (i2cTxReg(chip, 0, TOF8806_REQ_APP_ID_REG, 1, app_id)) {
 			  dev_err(&chip->client->dev, "Error setting REQ_APP_ID register.\n");
 
@@ -1374,12 +1433,12 @@ int wait_for_tmf8806_ready(void)
 			/*if(tof8806_registered_driver.sysfs_registered){
 				sysfs_remove_groups(&client->dev.kobj, (const struct attribute_group **)&tmf8806_attr_groups);
 				tof8806_registered_driver.sysfs_registered = FALSE;
-			}*/
+			}
 			if(tof8806_registered_driver.dev_registered){
 				input_unregister_device(chip->obj_input_dev);
 				tof8806_registered_driver.dev_registered = FALSE;
-			}
-			CAM_EXT_ERR(CAM_EXT_TOF, "chipid not matched, remove input_dev and sysfs attribute group.\n");
+			}*/
+			CAM_EXT_ERR(CAM_EXT_TOF, "chipid not matched, input_dev and sysfs attribute group are not registed.\n");
 			error = -EIO; // in case of error
 			goto gen_err;
 		}
@@ -1389,14 +1448,22 @@ int wait_for_tmf8806_ready(void)
 	do_tmf8806_power_down(chip);
 
 	return 0;
-gen_err:
-gpio_err:
+
 sysfs_err:
 	if(tof8806_registered_driver.sysfs_registered){
 		sysfs_remove_groups(cam_tof_kobj, tmf8806_attr_groups);
 		tof8806_registered_driver.sysfs_registered = FALSE;
 	}
+input_dev_alloc_err:
+input_reg_err:
+	if(tof8806_registered_driver.dev_registered == TRUE){
+		input_unregister_device(chip->obj_input_dev);
+		tof8806_registered_driver.dev_registered = FALSE;
+	}
+gen_err:
+gpio_err:
 	do_tmf8806_power_down(chip);
+	i2c_set_clientdata(client, NULL);
 	enablePinLow(chip);
 	CAM_EXT_ERR(CAM_EXT_TOF, "Probe failed.\n");
 
@@ -1432,6 +1499,7 @@ static int tof8806_app0_poll_irq_thread(void *tof_chip)
 			input_sync(chip->obj_input_dev);
 		}
 		usleep_range(us_sleep, us_sleep + us_sleep/10);
+		CAM_EXT_INFO(CAM_EXT_TOF, "ToF irq polling thread running");
 	}
 	return 0;
 }
@@ -1456,7 +1524,6 @@ int tmf8806_oem_start(void)
 		CAM_EXT_INFO(CAM_EXT_TOF, "tof have power up.\n");
 	}
 	AMS_MUTEX_OEM_UNLOCK(&g_tof8806_sensor_chip->power_lock);
-
 
 	enablePinHigh(g_tof8806_sensor_chip) ;
 	delayInMicroseconds(ENABLE_TIME_MS * 1000);
@@ -1532,30 +1599,11 @@ static int tmf8806_probe(struct i2c_client *client)
 	chip->tof_output_frame.frame.frameNumber = 0;
 	chip->tof_output_frame.frame.payload_lsb = 0;
 	chip->tof_output_frame.frame.payload_msb = 0;
-
+	chip->tof_core.measureConfig.data.command = 0;
 	/* Setup IRQ Handling */
 	poll_prop_ptr = (void *)of_get_property(g_tof8806_sensor_chip->client->dev.of_node, TOF_PROP_NAME_POLLIO, NULL);
 	g_tof8806_sensor_chip->poll_period = poll_prop_ptr ? be32_to_cpup(poll_prop_ptr) : 0;
 
-	//set input device
-	chip->obj_input_dev = devm_input_allocate_device(&client->dev);
-	if (chip->obj_input_dev == NULL) {
-		CAM_EXT_ERR(CAM_EXT_TOF, "Error allocating input_dev.\n");
-		goto input_dev_alloc_err;
-	}
-	chip->obj_input_dev->name = chip->pdata->tof_name;
-	chip->obj_input_dev->id.bustype = BUS_I2C;
-	input_set_drvdata(chip->obj_input_dev, chip);
-	chip->obj_input_dev->open = tmf8806_input_dev_open;
-	set_bit(EV_ABS, chip->obj_input_dev->evbit);
-	input_set_abs_params(chip->obj_input_dev, ABS_DISTANCE, 0, 0xFF, 0, 0);
-	error = input_register_device(chip->obj_input_dev);
-	if (error) {
-		CAM_EXT_ERR(CAM_EXT_TOF, "Error registering input_dev.\n");
-		goto input_reg_err;
-	}
-	tof8806_registered_driver.dev_registered = TRUE;
-	CAM_EXT_INFO(CAM_EXT_TOF, " register input_dev.\n");
 
 
 	// Set ChipEnable HIGH
@@ -1599,11 +1647,7 @@ sysfs_err:
 	*/
 gpio_err:
 	enablePinLow(chip);
-input_dev_alloc_err:
-input_reg_err:
 	i2c_set_clientdata(client, NULL);
-	input_unregister_device(chip->obj_input_dev);
-	tof8806_registered_driver.dev_registered = FALSE;
 	CAM_EXT_ERR(CAM_EXT_TOF, "Probe failed.\n");
 
 	return error;
@@ -1637,14 +1681,12 @@ static void tmf8806_remove(struct i2c_client *client)
 		tof8806_registered_driver.sysfs_registered = FALSE;
 	}
 	if(tof8806_registered_driver.dev_registered){
-		i2c_set_clientdata(client, NULL);
 		input_unregister_device(chip->obj_input_dev);
 		tof8806_registered_driver.dev_registered = FALSE;
 	}
-	dev_info(&client->dev, "%s\n", __func__);
+	CAM_EXT_INFO(CAM_EXT_TOF, "%s", __func__);
 	do_tmf8806_power_down(chip);
-
-	return;
+	i2c_set_clientdata(client, NULL);
 }
 
 /**************************************************************************/

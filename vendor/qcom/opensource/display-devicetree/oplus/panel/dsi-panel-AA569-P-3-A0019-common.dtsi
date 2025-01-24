@@ -130,10 +130,34 @@
 				qcom,mdss-dsi-hbm-exit-max-command = [
 					39 00 00 00 00 00 03 51 0F FE
 				];
+				oplus,dsi-panel-gamma-compensation-page0-command = [
+					39 00 00 40 00 00 04 FF 5A A5 2F
+					15 00 00 40 00 00 02 99 00
+					39 00 00 00 00 00 04 FF 5A A5 00
+				];
+				oplus,dsi-panel-gamma-compensation-page1-command = [
+					39 00 00 40 00 00 04 FF 5A A5 2F
+					15 00 00 00 00 00 02 99 00
+				];
+				oplus,dsi-panel-gamma-compensation-command = [
+					39 00 00 40 00 00 04 FF 5A A5 08
+					15 00 00 40 00 00 02 C8 62
+					39 00 00 40 00 00 04 FF 5A A5 2F
+					15 00 00 40 00 00 02 99 81
+					39 00 00 40 00 00 07 81 00 00 00 00 00 00
+					15 00 00 40 00 00 02 99 B1
+					39 00 00 40 00 00 07 81 00 00 00 00 00 00
+					15 00 00 40 00 00 02 99 8D
+					39 00 00 40 00 00 07 81 00 00 00 00 00 00
+					15 00 00 40 00 00 02 99 BD
+					39 00 00 40 00 00 07 81 00 00 00 00 00 00
+					15 00 00 40 00 00 02 99 00
+					39 00 00 00 00 00 04 FF 5A A5 00
+				];
 
 				qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
 				qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
-				qcom,mdss-dsi-timing-switch-command-state = "dsi_hs_pack_mode";
+				qcom,mdss-dsi-timing-switch-command-state = "dsi_hs_sync1_mode";
 				qcom,mdss-dsi-lp1-command-state = "dsi_hs_mode";
 				qcom,mdss-dsi-nolp-command-state = "dsi_hs_mode";
 				qcom,mdss-dsi-aod-high-mode-command-state = "dsi_hs_mode";
@@ -147,14 +171,17 @@
 				qcom,mdss-dsi-set-dc-on-command-state = "dsi_hs_mode";
 				qcom,mdss-dsi-hbm-max-command-state = "dsi_hs_mode";
 				qcom,mdss-dsi-hbm-exit-max-command-state = "dsi_hs_mode";
-				qcom,mdss-dsi-aod-on-1pulse-command-state = "dsi_hs_pack_mode";
-				qcom,mdss-dsi-aod-off-1pulse-command-state = "dsi_hs_pack_mode";
-				qcom,mdss-dsi-pwm-switch-mode0-command-state = "dsi_hs_pack_mode";
-				qcom,mdss-dsi-pwm-switch-mode2-command-state = "dsi_hs_pack_mode";
+				qcom,mdss-dsi-aod-on-1pulse-command-state = "dsi_hs_sync1_mode";
+				qcom,mdss-dsi-aod-off-1pulse-command-state = "dsi_hs_sync1_mode";
+				qcom,mdss-dsi-pwm-switch-mode0-command-state = "dsi_hs_sync1_mode";
+				qcom,mdss-dsi-pwm-switch-mode2-command-state = "dsi_hs_sync1_mode";
 				qcom,mdss-dsi-pwm-switch-mode2-panel-on-command-state = "dsi_hs_mode";
-				qcom,mdss-dsi-timming-pwm-switch-onepulse-command-state = "dsi_hs_pack_mode";
-				qcom,mdss-dsi-pwm-switch-low-bl-command-state = "dsi_hs_pack_mode";
-				qcom,mdss-dsi-pwm-switch-high-bl-command-state = "dsi_hs_pack_mode";
+				qcom,mdss-dsi-timming-pwm-switch-onepulse-command-state = "dsi_hs_sync1_mode";
+				qcom,mdss-dsi-pwm-switch-low-bl-command-state = "dsi_hs_sync1_mode";
+				qcom,mdss-dsi-pwm-switch-high-bl-command-state = "dsi_hs_sync1_mode";
+				oplus,dsi-panel-gamma-compensation-page0-command-state = "dsi_hs_mode";
+				oplus,dsi-panel-gamma-compensation-page1-command-state = "dsi_hs_mode";
+				oplus,dsi-panel-gamma-compensation-command-state = "dsi_hs_mode";
 
 				qcom,compression-mode = "dsc";
 				qcom,mdss-dsc-encoders = <2>;

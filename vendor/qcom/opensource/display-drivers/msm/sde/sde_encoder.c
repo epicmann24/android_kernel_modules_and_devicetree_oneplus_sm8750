@@ -2047,7 +2047,7 @@ static void _sde_encoder_cesta_update(struct drm_encoder *drm_enc,
 			ctrl_cfg.hw_sleep_enable = false;
 			req_scc = true;
 			req_flush = true;
-			/* reset the flag, so auto-active setting is left intact during TUI session */
+			/* reset flag, so auto-active setting is left intact during TUI session */
 			sde_enc->cesta_force_auto_active_db_update = false;
 		} else if (vm_req == VM_REQ_ACQUIRE) {
 			req_scc = true;
@@ -2081,7 +2081,8 @@ static void _sde_encoder_cesta_update(struct drm_encoder *drm_enc,
 	SDE_EVT32(DRMID(drm_enc), commit_state, cfg.index, cfg.vote_state, cfg.flags, req_flush,
 			req_scc, sde_enc->cesta_enable_frame, vm_req, sde_enc->mode_switch,
 			ctrl_cfg.req_mode, ctrl_cfg.hw_sleep_enable,
-			sde_enc->cesta_force_auto_active_db_update, sde_enc->cesta_reset_intf_master);
+			sde_enc->cesta_force_auto_active_db_update,
+			sde_enc->cesta_reset_intf_master);
 }
 
 void sde_encoder_cancel_vrr_timers(struct drm_encoder *encoder)
@@ -4752,7 +4753,7 @@ void sde_encoder_complete_commit(struct drm_encoder *drm_enc)
 					ctrl_cfg.auto_active_on_panic, ctrl_cfg.req_mode,
 					ctrl_cfg.hw_sleep_enable);
 			sde_enc->cesta_force_auto_active_db_update = false;
-       }
+		}
 	}
 
 	sde_enc->mode_switch = SDE_MODE_SWITCH_NONE;
@@ -4880,11 +4881,11 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 		SDE_EVT32(DRMID(drm_enc), phys->intf_idx - INTF_0, ctl->idx - CTL_0,
 				pending_flush.pending_flush_mask, pend_ret_fence_cnt,
 				sde_enc->cesta_reset_intf_master, sde_enc->intf_master,
-				DPUID(drm_enc->dev));
+				DPUID(drm_enc->dev), SDE_EVTLOG_FUNC_CASE1);
 	} else {
 		SDE_EVT32(DRMID(drm_enc), phys->intf_idx - INTF_0, ctl->idx - CTL_0,
 				pend_ret_fence_cnt, sde_enc->cesta_reset_intf_master,
-				sde_enc->intf_master, DPUID(drm_enc->dev));
+				sde_enc->intf_master, DPUID(drm_enc->dev), SDE_EVTLOG_FUNC_CASE2);
 	}
 }
 

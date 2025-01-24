@@ -1066,7 +1066,6 @@ struct msm_resource_caps_info {
  * @ctl_op_sync:        Indicates dual display panels are operating in sync mode
  * @is_master:          Flag indicating the Master display which drives the displays in sync mode
  * @disable_cesta_hw_sleep: Disable cesta hardware sleep & panic/wakeup_en for the display
- * @level_te:           Flag to indicate panel uses level-te
  */
 struct msm_display_info {
 	int intf_type;
@@ -1109,7 +1108,6 @@ struct msm_display_info {
 	bool ctl_op_sync;
 	bool is_master;
 	bool disable_cesta_hw_sleep;
-	bool level_te;
 };
 
 #define MSM_MAX_ROI	4

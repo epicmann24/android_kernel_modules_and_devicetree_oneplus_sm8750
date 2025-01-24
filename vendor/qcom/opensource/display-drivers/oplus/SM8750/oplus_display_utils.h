@@ -47,29 +47,11 @@ typedef struct panel_serial_info {
 	uint64_t reserved[2];
 } PANEL_SERIAL_INFO;
 
-enum oplus_display_power_status {
-	OPLUS_DISPLAY_POWER_OFF = 0,
-	OPLUS_DISPLAY_POWER_DOZE,
-	OPLUS_DISPLAY_POWER_ON,
-	OPLUS_DISPLAY_POWER_DOZE_SUSPEND,
-	OPLUS_DISPLAY_POWER_ON_UNKNOW,
-};
-
-typedef struct oplus_display_notifier_event {
-	enum oplus_display_power_status status;
-	void *data;
-} OPLUS_DISPLAY_NOTIFIER_EVENT;
-
 int oplus_display_register_client(struct notifier_block *nb);
 int oplus_display_unregister_client(struct notifier_block *nb);
-void oplus_display_notifier_early_status(enum oplus_display_power_status
-		power_status);
-void oplus_display_notifier_status(enum oplus_display_power_status power_status);
 bool oplus_is_correct_display(enum oplus_display_support_list lcd_name);
 bool oplus_is_silence_reboot(void);
 bool oplus_is_factory_boot(void);
-enum oplus_display_power_status __oplus_get_power_status(void);
-void __oplus_set_power_status(enum oplus_display_power_status power_status);
 int oplus_display_get_resolution(unsigned int *xres, unsigned int *yres);
 
 /* add for dual panel */
@@ -113,4 +95,5 @@ int oplus_event_data_notifier_trigger(
  */
 int oplus_panel_backlight_notifier(struct dsi_panel *panel, u32 bl_lvl);
 
+int oplus_display_panel_gamma_compensation(struct dsi_display *display);
 #endif /* _OPLUS_DISPLAY_UTILS_H_ */

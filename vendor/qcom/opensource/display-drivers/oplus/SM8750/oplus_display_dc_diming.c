@@ -492,8 +492,14 @@ error:
 int oplus_display_panel_get_dim_alpha(void *buf)
 {
 	unsigned int *temp_alpha = buf;
+	struct dsi_display *display = oplus_display_get_current_display();
 
-	if (__oplus_get_power_status() != OPLUS_DISPLAY_POWER_ON) {
+	if (!display || !display->panel) {
+		OPLUS_DSI_ERR("display is null or display->panel is null\n");
+		return -EINVAL;
+	}
+
+	if (display->panel->power_mode != SDE_MODE_DPMS_ON) {
 		(*temp_alpha) = 0;
 		return 0;
 	}
@@ -515,8 +521,14 @@ int oplus_display_panel_get_dim_dc_alpha(void *buf)
 {
 	int ret = 0;
 	unsigned int *temp_dim_alpha = buf;
+	struct dsi_display *display = oplus_display_get_current_display();
 
-	if (__oplus_get_power_status() != OPLUS_DISPLAY_POWER_ON) {
+	if (!display || !display->panel) {
+		OPLUS_DSI_ERR("display is null or display->panel is null\n");
+		return -EINVAL;
+	}
+
+	if (display->panel->power_mode != SDE_MODE_DPMS_ON) {
 		ret = 0;
 	}
 

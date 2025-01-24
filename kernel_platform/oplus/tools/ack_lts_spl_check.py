@@ -9,6 +9,9 @@ import csv
 import argparse
 import re
 import sys
+import hashlib
+import xml.etree.ElementTree as ET
+from openpyxl import Workbook, load_workbook
 
 kernel_info = []
 lts_config_url=(
@@ -27,10 +30,13 @@ def parse_cmd_args():
     parser.add_argument('-p', '--prj', type=str, help='ack lts check project', default='0')
     parser.add_argument('-z', '--lz4', type=str, help='lz4 process tool', default=tools_dir + '/lz4')
     parser.add_argument('-n', '--unpack_bootimg', type=str, help='boot unpack tool', default=tools_dir + '/unpack_bootimg')
+    parser.add_argument('-a', '--approved', type=str, help='approved ogki builds', default='approved-ogki-builds.xml')
+    parser.add_argument('-l', '--lifetimes', type=str, help='kernel lifetimes', default='kernel-lifetimes.xml')
     args = parser.parse_args()
     print('boot:', args.bootimg, '\nKernel info:', args.kernelinfo, '\nout:', args.out,
       '\nconfig url:', args.url, '\nconfig save:', args.config,
-      '\nprj:', args.prj, '\nlz4:', args.lz4,'\nunpack_bootimg:', args.unpack_bootimg)
+      '\nprj:', args.prj, '\nlz4:', args.lz4,'\nunpack_bootimg:', args.unpack_bootimg,
+      '\napproved:', args.approved, '\nlifetimes:', args.lifetimes)
     return args
 
 def download_compile_ini(bootimg, out):
@@ -451,6 +457,81 @@ def delete_files_and_dirs(path, delete_list):
     if not os.listdir(path):
         os.rmdir(path)
 
+def calculate_sha256(input_string):
+    """
+    计算并且打印字符串的 SHA256 哈希值.
+
+    参数:
+    input_string (str): 要计算哈希值的字符串
+
+    返回:
+    str: 字符串的 SHA256 哈希值
+    """
+    # 创建SHA256哈希对象
+    sha256_hash = hashlib.sha256()
+
+    # 更新哈希对象，传入字符串的字节形式
+    sha256_hash.update(input_string.encode('utf-8'))
+
+    # 获取十六进制的哈希值
+    sha256_digest = sha256_hash.hexdigest()
+
+    # 打印哈希值
+    print("calculate sha256:"+sha256_digest)
+
+    # 返回哈希值
+    return sha256_digest
+
+def find_id_in_xml(xml_filename, search_id):
+    """
+    读取XML文件的内容，并根据传入的字符串查找id字段相同的内容
+    :param xml_filename: XML文件名
+    :param search_id: 需要查找的字符串
+    :return: 返回(id, bug)，如果未查询到，则返回 False
+    """
+    try:
+        tree = ET.parse(xml_filename)
+        root = tree.getroot()
+
+        # 找到所有的 <build> 元素
+        for build in root.iter('build'):
+            # 检查当前 <build> 元素的 id 属性是否与搜索字符串匹配
+            if build.get('id') == search_id:
+                bug = build.get('bug')
+                print("Found id: {}, bug: {}".format(search_id, bug))
+                return search_id, bug
+
+        # 如果未查询到匹配的 id
+        return False
+
+    except ET.ParseError:
+        print("Error: Failed to parse the XML file.")
+        return False
+    except FileNotFoundError:
+        print("Error: The file was not found.")
+        return False
+
+def ogki_approve_check(args, version):
+    update_info_parts = []
+    sha256_result = calculate_sha256(version)
+    update_info_parts.append("LINUX_KERNEL_FULL_VERSION_SHA256:"+sha256_result)
+
+    if os.path.exists(args.approved):
+
+        result = find_id_in_xml(args.approved, sha256_result)
+        if result:
+            #print("Returned: id: {}, bug: {}".format(result[0], result[1]))
+            update_info_parts.append("LINUX_KERNEL_FULL_VERSION_OGKI_VTS_CHECK:pass")
+            update_info_parts.append("google_bug_id:"+result[1])
+        else:
+            print("No matching id found.")
+            update_info_parts.append("LINUX_KERNEL_FULL_VERSION_OGKI_VTS_CHECK:fail")
+            update_info_parts.append("google_bug_id:0")
+
+    message = "\n".join(update_info_parts)+"\n"
+    print(message)
+    update_kernel_info(message)
+
 print('\nstep 1 get input argc/argv')
 args = parse_cmd_args()
 
@@ -474,6 +555,8 @@ try:
     update_info = "LINUX_KERNEL_FULL_VERSION:"+version+"\n"
     print(update_info)
     update_kernel_info(update_info)
+    ogki_approve_check(args, version)
+
 except ValueError as e:
     print(str(e))
 

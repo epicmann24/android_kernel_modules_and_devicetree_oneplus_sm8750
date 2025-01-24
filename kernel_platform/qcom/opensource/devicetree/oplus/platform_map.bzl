@@ -27,6 +27,8 @@ _platform_map = {
             # keep sorted
             {"name": "dodge-23821-sun-overlay.dtbo"},
             {"name": "dodge-23821-sun-overlay-T0.dtbo"},
+            {"name": "dodge-23893-sun-overlay.dtbo"},
+            {"name": "dodge-23893-sun-overlay-T0.dtbo"},
         ],
     },
     "tuna": {

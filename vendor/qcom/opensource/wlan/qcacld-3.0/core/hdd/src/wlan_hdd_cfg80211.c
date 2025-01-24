@@ -20285,6 +20285,7 @@ static const struct nla_policy
         [OPLUS_WLAN_VENDOR_ATTR_WETHER_BLOCK_CLIENT] = {.type = NLA_U8},
         [OPLUS_WLAN_VENDOR_ATTR_SAP_MAX_CLIENT_NUM] = {.type = NLA_U32},
         [OPLUS_WLAN_VENDOR_ATTR_CONFIG_MAX_TX_BANDWIDTH] = {.type = NLA_U16},
+        [OPLUS_WLAN_VENDOR_ATTR_MONITOR_CHAIN_RSSI] = {.type = NLA_U8},
 };
 
 static int __wlan_hdd_cfg80211_oplus_modify_acl(struct wiphy *wiphy,
@@ -20494,10 +20495,32 @@ static int hdd_set_max_tx_bandwidth_config(struct wlan_hdd_link_info *link_info,
 	return ret;
 }
 
+#ifdef OPLUS_FEATURE_WIFI_BEAM_SWITCH
+static int hdd_set_oplus_chain_rssi_monitor(struct wlan_hdd_link_info *link_info,
+                                        const struct nlattr *attr)
+{
+	if (hdd_validate_adapter(link_info->adapter)) {
+		hdd_err("Invalid adapter");
+		return -EINVAL;
+	}
+
+	uint8_t enable_monitor;
+
+	enable_monitor = nla_get_u8(attr);
+	hdd_debug("hdd_set_oplus_chain_rssi_monitor enable_monitor %u ", enable_monitor);
+	set_oplus_chain_rssi_monitor(enable_monitor);
+	return 0;
+}
+#endif /* OPLUS_FEATURE_WIFI_BEAM_SWITCH */
+
 /* vtable for oplus independent setters */
 static const struct independent_setters oplus_independent_setters[] = {
 	{OPLUS_WLAN_VENDOR_ATTR_CONFIG_MAX_TX_BANDWIDTH,
 	 hdd_set_max_tx_bandwidth_config},
+	#ifdef OPLUS_FEATURE_WIFI_BEAM_SWITCH
+	{OPLUS_WLAN_VENDOR_ATTR_MONITOR_CHAIN_RSSI,
+	 hdd_set_oplus_chain_rssi_monitor},
+	#endif /* OPLUS_FEATURE_WIFI_BEAM_SWITCH */
 };
 
 static int hdd_set_oplus_independent_configuration(struct wlan_hdd_link_info *link_info,
@@ -27181,7 +27204,7 @@ static int wlan_add_key_standby_link(struct hdd_adapter *adapter,
 	mlo_link_info = mlo_mgr_get_ap_link_by_link_id(vdev->mlo_dev_ctx,
 						       link_id);
 	if (!mlo_link_info)
-		return QDF_STATUS_E_FAILURE;
+		return -EINVAL;
 
 	errno = wlan_cfg80211_store_link_key(
 			hdd_ctx->psoc, key_index,

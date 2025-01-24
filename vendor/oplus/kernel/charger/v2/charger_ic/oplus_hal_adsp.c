@@ -55,7 +55,7 @@
 #define OPLUS_HVDCP_DISABLE_INTERVAL round_jiffies_relative(msecs_to_jiffies(15000))
 #define OPLUS_HVDCP_DETECT_TO_DETACH_TIME 3600
 #define OEM_MISC_CTL_DATA_PAIR(cmd, enable) ((enable ? 0x3 : 0x1) << cmd)
-#define OPLUS_PD_ONLY_CHECK_INTERVAL round_jiffies_relative(msecs_to_jiffies(50))
+#define OPLUS_PD_ONLY_CHECK_INTERVAL round_jiffies_relative(msecs_to_jiffies(300))
 #define OPLUS_GET_BATT_INFO_FROM_ADSP_INTERVAL round_jiffies_relative(msecs_to_jiffies(100))
 #define OPLUS_HBOOST_NOTIFY_INTERVAL round_jiffies_relative(msecs_to_jiffies(3000))
 
@@ -93,9 +93,8 @@ static bool is_common_topic_available(struct battery_chg_dev *bcdev);
 static bool oplus_get_ufcs_charging(struct battery_chg_dev *bcdev);
 __maybe_unused static bool oplus_get_pps_charging(struct battery_chg_dev *bcdev);
 static int oplus_chg_set_input_current(struct battery_chg_dev *bcdev, int current_ma);
-#endif /*OPLUS_FEATURE_CHG_BASIC*/
-
 static int oplus_get_pps_info_from_adsp(struct oplus_chg_ic_dev *ic_dev, u32 *pdo, int num);
+#endif /*OPLUS_FEATURE_CHG_BASIC*/
 
 #ifdef OPLUS_FEATURE_CHG_BASIC
 /*for p922x compile*/
@@ -213,8 +212,7 @@ int oplus_chg_set_icl_by_vote(int icl, const char *client_str)
 
 	rc = vote(icl_votable, client_str, true, icl, true);
 	if (rc < 0)
-		chg_err("set icl error: icl = %d, rc = %d\n",
-			     icl, rc);
+		chg_err("set icl error: icl = %d, rc = %d\n", icl, rc);
 	else
 		chg_info("real icl = %d\n", icl);
 
@@ -1357,11 +1355,11 @@ static int oplus_get_max_current_from_fixed_pdo(struct battery_chg_dev *bcdev, i
 	int i = 0;
 	if (bcdev->pdo[0].pdo_data == 0) {
 		chg_err("get pdo info error\n");
-		return -1;
+		return -EINVAL;
 	}
 
-	if (oplus_chg_get_common_charge_icl_support_flags() != 1)
-		return -1;
+	if (!oplus_chg_get_common_charge_icl_support_flags())
+		return -EINVAL;
 
 	for (i = 0; i < (PPS_PDO_MAX - 1); i++) {
 		if (bcdev->pdo[i].pdo_type != USBPD_PDMSG_PDOTYPE_FIXED_SUPPLY)
@@ -1376,7 +1374,14 @@ static int oplus_get_max_current_from_fixed_pdo(struct battery_chg_dev *bcdev, i
 			return PD_PDO_CURR_MAX(bcdev->pdo[i].max_current_10ma);
 		}
 	}
-	return -1;
+	return -EINVAL;
+}
+
+#define SUSPEND_RECOVERY_DELAY_MS 2000
+static void oplus_sourcecap_suspend_recovery_work(struct work_struct *work)
+{
+	chg_info("sourcecap suspend recovery, unsuspend\n");
+	oplus_chg_suspend_charger(false, PD_PDO_ICL_VOTER);
 }
 
 static void oplus_sourcecap_done_work(struct work_struct *work)
@@ -1386,7 +1391,7 @@ static void oplus_sourcecap_done_work(struct work_struct *work)
 	int max_pdo_current = 0;
 	int rc = 0;
 
-	rc = oplus_get_pps_info_from_adsp(bcdev->buck_ic, (u32*)bcdev->pdo, PPS_PDO_MAX);
+	rc = oplus_get_pps_info_from_adsp(bcdev->buck_ic, (u32 *)bcdev->pdo, PPS_PDO_MAX);
 	if (rc < 0) {
 		chg_err("get pdo info error\n");
 		return;
@@ -2967,7 +2972,7 @@ static void handle_notification(struct battery_chg_dev *bcdev, void *data,
 	case PD_SOURCECAP_DONE:
 		chg_info("PD_SOURCECAP_DONE\n");
 		if (oplus_chg_get_common_charge_icl_support_flags())
-			schedule_delayed_work(&bcdev->sourcecap_done_work, msecs_to_jiffies(20));
+			schedule_delayed_work(&bcdev->sourcecap_done_work, 0);
 		break;
 #endif
 	default:
@@ -4754,6 +4759,8 @@ static int oplus_chg_parse_custom_dt(struct battery_chg_dev *bcdev)
 		bcdev->otg_boost_src = OTG_BOOST_SOURCE_EXTERNAL;
 	}
 
+	bcdev->real_mvolts_min_support = !of_property_read_bool(node, "oplus,vbat_min_bypass_max_channel");
+	chg_info("real_mvolts_min_support:%d\n", bcdev->real_mvolts_min_support);
 	bcdev->bypass_vooc_support = of_property_read_bool(node, "oplus,bypass_vooc_support");
 	bcdev->ufcs_run_check_support = of_property_read_bool(node, "oplus,ufcs_run_check_support");
 
@@ -5316,7 +5323,11 @@ __maybe_unused static int fg_sm8350_get_battery_mvolts_min(void)
 	}
 #endif
 
-	prop_id = get_property_id(pst, POWER_SUPPLY_PROP_VOLTAGE_NOW);
+	if (bcdev->real_mvolts_min_support && oplus_chg_get_voocphy_support(bcdev) == ADSP_VOOCPHY)
+		prop_id = BATT_VOLT_MIN;
+	else
+		prop_id = get_property_id(pst, POWER_SUPPLY_PROP_VOLTAGE_NOW);
+
 	rc = read_property_id(bcdev, pst, prop_id);
 	if (rc < 0) {
 		chg_err("read battery volt fail, rc=%d\n", rc);
@@ -6319,7 +6330,10 @@ static int oplus_chg_set_input_current(struct battery_chg_dev *bcdev, int curren
 		if (max_pdo_current >= 0)
 			current_ma = min(current_ma, max_pdo_current);
 		if (current_ma < DEFAULT_CURR_BY_CC) {
+			cancel_delayed_work(&bcdev->sourcecap_suspend_recovery_work);
 			oplus_chg_suspend_charger(true, PD_PDO_ICL_VOTER);
+			schedule_delayed_work(&bcdev->sourcecap_suspend_recovery_work,
+				msecs_to_jiffies(SUSPEND_RECOVERY_DELAY_MS));
 			goto aicl_return;
 		} else if (current_ma < usb_icl[0]) {
 			oplus_chg_suspend_charger(false, PD_PDO_ICL_VOTER);
@@ -6328,7 +6342,6 @@ static int oplus_chg_set_input_current(struct battery_chg_dev *bcdev, int curren
 			oplus_chg_suspend_charger(false, PD_PDO_ICL_VOTER);
 		}
 	}
-
 
 	if (current_ma < 500) {
 		i = 0;
@@ -6525,6 +6538,7 @@ common_charge_aicl_end:
 	chg_info("common_charge_aicl_end set icl:%d mA, rc=%d\n", DEFAULT_CURR_BY_CC, rc);
 	goto aicl_return;
 aicl_return:
+	bcdev->g_icl_ma = usb_icl[i];
 	return rc;
 }
 
@@ -6532,6 +6546,9 @@ static void oplus_vbus_collapse_rerun_icl_work(struct work_struct *work)
 {
 	struct battery_chg_dev *bcdev = container_of(work,
 		struct battery_chg_dev, vbus_collapse_rerun_icl_work.work);
+
+	if (qpnp_get_prop_vbus_collapse_status(bcdev) == false)
+		return;
 
 	oplus_chg_set_input_current(bcdev, bcdev->g_icl_ma);
 }
@@ -7107,7 +7124,6 @@ static int oplus_chg_8350_set_pd_config(struct oplus_chg_ic_dev *ic_dev, u32 pdo
 
 	switch (PD_SRC_PDO_TYPE(pdo)) {
 	case PD_SRC_PDO_TYPE_FIXED:
-
 		vol_mv = PD_SRC_PDO_FIXED_VOLTAGE(pdo) * 50;
 		if (vol_mv != OPLUS_PD_5V && vol_mv != OPLUS_PD_9V) {
 			chg_err("Unsupported pd voltage(=%d)\n", vol_mv);
@@ -8598,6 +8614,23 @@ oplus_sm8350_get_battery_gauge_type_for_bcc(struct oplus_chg_ic_dev *ic_dev,
 	return 0;
 }
 
+static int
+oplus_sm8350_get_real_time_current(struct oplus_chg_ic_dev *ic_dev,
+				       int *val)
+{
+	struct battery_chg_dev *bcdev;
+
+	if ((ic_dev == NULL) || (val == NULL)) {
+		chg_err("!!!ic_dev null\n");
+		return -ENODEV;
+	}
+
+	bcdev = oplus_chg_ic_get_drvdata(ic_dev);
+	*val = bcdev->bcc_read_buffer_dump.data_buffer[8];
+
+	return 0;
+}
+
 static int oplus_sm8350_get_reg_info(struct oplus_chg_ic_dev *ic_dev, u8 *info, int len)
 {
 	struct battery_chg_dev *bcdev;
@@ -9203,6 +9236,11 @@ static void *oplus_chg_8350_gauge_get_func(struct oplus_chg_ic_dev *ic_dev,
 			OPLUS_IC_FUNC_GAUGE_GET_BATT_CURR,
 			oplus_sm8350_get_batt_curr);
 		break;
+	case OPLUS_IC_FUNC_GAUGE_GET_REAL_TIME_CURR:
+		func = OPLUS_CHG_IC_FUNC_CHECK(
+			OPLUS_IC_FUNC_GAUGE_GET_REAL_TIME_CURR,
+			oplus_sm8350_get_real_time_current);
+		break;
 	case OPLUS_IC_FUNC_GAUGE_GET_BATT_TEMP:
 		func = OPLUS_CHG_IC_FUNC_CHECK(
 			OPLUS_IC_FUNC_GAUGE_GET_BATT_TEMP,
@@ -9599,6 +9637,11 @@ static void *oplus_chg_adsp_cp_get_func(struct oplus_chg_ic_dev *ic_dev, enum op
 	if (!ic_dev->online && (func_id != OPLUS_IC_FUNC_INIT) &&
 	    (func_id != OPLUS_IC_FUNC_EXIT)) {
 		chg_err("%s is offline\n", ic_dev->name);
+		return NULL;
+	}
+
+	if (!oplus_chg_ic_func_is_support(ic_dev, func_id)) {
+		chg_info("%s: this func(=%d) is not supported\n", ic_dev->name, func_id);
 		return NULL;
 	}
 
@@ -10924,6 +10967,7 @@ static int battery_chg_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&bcdev->publish_close_cp_item_work, oplus_publish_close_cp_item_work);
 	INIT_DELAYED_WORK(&bcdev->hboost_notify_work, oplus_hboost_notify_work);
 	INIT_DELAYED_WORK(&bcdev->sourcecap_done_work, oplus_sourcecap_done_work);
+	INIT_DELAYED_WORK(&bcdev->sourcecap_suspend_recovery_work, oplus_sourcecap_suspend_recovery_work);
 #endif
 #ifdef OPLUS_FEATURE_CHG_BASIC
 	INIT_DELAYED_WORK(&bcdev->vchg_trig_work, oplus_vchg_trig_work);

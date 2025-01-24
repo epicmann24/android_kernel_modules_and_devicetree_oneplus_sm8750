@@ -894,4 +894,10 @@ hdd_cstats_log_ndi_create_req_evt(struct wlan_objmgr_vdev *vdev,
 {
 }
 #endif /* WLAN_CHIPSET_STATS */
+
+#ifdef OPLUS_FEATURE_WIFI_BEAM_SWITCH
+void send_chain_rssi_to_oplus(int v_dev, int8_t rssi0, int8_t rssi1);
+void set_oplus_chain_rssi_monitor(uint8_t enable_monitor);
+#endif /* OPLUS_FEATURE_WIFI_BEAM_SWITCH */
+
 #endif /* end #if !defined(WLAN_HDD_STATS_H) */

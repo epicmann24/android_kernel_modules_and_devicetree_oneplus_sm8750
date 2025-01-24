@@ -22,6 +22,7 @@
 #include <linux/cpufeature.h>
 #include <linux/sched/clock.h>
 #include <linux/thread_info.h>
+#include <linux/threads.h>
 #include <linux/profile.h>
 #include <linux/kprobes.h>
 #include <linux/cgroup.h>
@@ -71,6 +72,7 @@
 
 #define inherit_ux_offset_of(type)			(type * INHERIT_UX_SEC_WIDTH)
 #define inherit_ux_mask_of(type)			((u64)(INHERIT_UX_MASK_BASE) << (inherit_ux_offset_of(type)))
+
 #define inherit_ux_get_bits(value, type)	((value & inherit_ux_mask_of(type)) >> inherit_ux_offset_of(type))
 #define inherit_ux_value(type, value)		((u64)value << inherit_ux_offset_of(type))
 
@@ -85,6 +87,17 @@
 #define RT_R_MULT_UNIT (CFS_R_MULT_UNIT * SCHED_MAX_CFS_R)
 #define AFFINITY_MASK_MULT_UNIT (RT_R_MULT_UNIT * SCHED_MAX_RT_R)
 #define AFFINITY_SET_MULT_UNIT (AFFINITY_MASK_MULT_UNIT * SCHED_MAX_AFFINITY_MASK)
+
+#ifdef CONFIG_OPLUS_SCHED_HALT_MASK_PRT
+#define SCHED_PARTIAL_HALT_OFFSET 10000LL
+
+cpumask_t cur_cpus_halt_mask = { CPU_BITS_NONE };
+EXPORT_SYMBOL(cur_cpus_halt_mask);
+cpumask_t cur_cpus_phalt_mask = { CPU_BITS_NONE };
+EXPORT_SYMBOL(cur_cpus_phalt_mask);
+DEFINE_PER_CPU(int[OPLUS_MAX_PAUSE_TYPE], oplus_cur_pause_client);
+EXPORT_SYMBOL(oplus_cur_pause_client);
+#endif /* CONFIG_OPLUS_SCHED_HALT_MASK_PRT */
 
 #ifdef CONFIG_OPLUS_FEATURE_TICK_GRAN
 DEFINE_PER_CPU(u64, retired_instrs);
@@ -160,6 +173,18 @@ bool is_webview(struct task_struct *p)
 	return false;
 }
 #endif
+
+bool is_heavy_load_top_task(struct task_struct *p)
+{
+	if (!is_top(p))
+		return false;
+
+	/* is UI main thread or RenderThread of TOP APP */
+	if ((p->pid == p->tgid) || (!strncmp(p->comm, "RenderThread", 12)))
+		return true;
+
+	return false;
+}
 
 struct ux_sched_cputopo ux_sched_cputopo;
 
@@ -656,7 +681,7 @@ void sched_info_systrace_c(unsigned int cpu, struct task_struct *p)
 	s_info += ((u8)cpumask_bits(&p->cpus_mask)[0]) * AFFINITY_MASK_MULT_UNIT;
 	if (cpumask_weight(&p->cpus_mask) < nr_cpu_ids) {
 		if (ots && likely(test_bit(OTS_STATE_SET_AFFINITY, &ots->state))
-			&& ots->affinity_pid > 0 && ots->affinity_pid < MAX_PID)
+			&& ots->affinity_pid > 0 && ots->affinity_pid < PID_MAX_LIMIT)
 			s_info += ((u64)ots->affinity_pid) * AFFINITY_SET_MULT_UNIT;
 	}
 	snprintf(buf, sizeof(buf), "C|9999|Cpu%d_sched_info|%llu\n", cpu, s_info);
@@ -687,6 +712,38 @@ void sa_scene_systrace_c(void)
 	}
 }
 
+#ifdef CONFIG_OPLUS_SCHED_HALT_MASK_PRT
+void sa_corectl_systrace_c(void)
+{
+	char buf[256];
+	int cur_mask;
+	u64 halt_info = 0;
+	unsigned int cpu;
+	int *cur_client_state;
+
+	if (likely(!(global_debug_enabled & DEBUG_SYSTRACE))) {
+		return;
+	}
+
+	cur_mask = cpumask_bits(&cur_cpus_halt_mask)[0];
+	snprintf(buf, sizeof(buf), "C|9999|Cpu_Halt_Mask|%d\n", cur_mask);
+	tracing_mark_write(buf);
+
+	cur_mask = cpumask_bits(&cur_cpus_phalt_mask)[0];
+	snprintf(buf, sizeof(buf), "C|9999|Cpu_Partial_Halt_Mask|%d\n", cur_mask);
+	tracing_mark_write(buf);
+
+
+	for_each_present_cpu(cpu) {
+		cur_client_state = per_cpu_ptr(oplus_cur_pause_client, cpu);
+		halt_info = cur_client_state[OPLUS_HALT];
+		halt_info += cur_client_state[OPLUS_PARTIAL_HALT] * SCHED_PARTIAL_HALT_OFFSET;
+		snprintf(buf, sizeof(buf), "C|9999|Cpu%d_Pause_Client|%llu\n", cpu, halt_info);
+		tracing_mark_write(buf);
+	}
+}
+EXPORT_SYMBOL(sa_corectl_systrace_c);
+#endif /* CONFIG_OPLUS_SCHED_HALT_MASK_PRT */
 
 void hwbinder_systrace_c(unsigned int cpu, int flag)
 {
@@ -811,6 +868,11 @@ unsigned int ux_task_exec_limit(struct task_struct *p)
 {
 	int ux_state = oplus_get_ux_state(p);
 	unsigned int exec_limit = UX_EXEC_SLICE;
+
+	if (global_lowend_plat_opt && (ux_state & SA_TYPE_HEAVY) && is_heavy_load_top_task(p)) {
+		exec_limit *= 40;
+		return exec_limit;
+	}
 
 	if (sched_assist_scene(SA_LAUNCH) && !(ux_state & SA_TYPE_INHERIT)) {
 		exec_limit *= 30;
@@ -1052,9 +1114,9 @@ static void dequeue_ux_thread(struct rq *rq, struct task_struct *p)
 	if (!oplus_rbnode_empty(&ots->ux_entry)) {
 		update_ux_timeline_task_removal(orq, ots);
 
-		/* inherit ux can only keep it's ux state in MAX_INHERIT_GRAN(64 ms) */
+		/* inherit ux can only keep it's ux state in MAX_INHERIT_GRAN */
 		if (get_ux_state_type(p) == UX_STATE_INHERIT &&
-			(p->se.sum_exec_runtime - ots->inherit_ux_start > MAX_INHERIT_GRAN)) {
+			(p->se.sum_exec_runtime - ots->inherit_ux_start > get_max_inherit_gran(p))) {
 			atomic64_set(&ots->inherit_ux, 0);
 			ots->ux_depth = 0;
 			ots->ux_state = 0;
@@ -1246,12 +1308,20 @@ void clear_all_inherit_type(struct task_struct *p)
 	oplus_set_ux_state_lock(p, 0, -1, true);
 }
 
+int get_max_inherit_gran(struct task_struct *p)
+{
+	if (global_lowend_plat_opt && test_inherit_ux(p, INHERIT_UX_BINDER))
+		return MAX_INHERIT_GRAN * 2;
+
+	return MAX_INHERIT_GRAN;
+}
+
 #ifndef CONFIG_OPLUS_SYSTEM_KERNEL_QCOM
 bool im_mali(const char *comm)
 {
 	return !strcmp(comm, "mali-event-hand") ||
 		!strcmp(comm, "mali-mem-purge") || !strcmp(comm, "mali-cpu-comman") ||
-		!strcmp(comm, "mali-compiler");
+		!strcmp(comm, "mali-compiler") || !strcmp(comm, "mali-cmar-backe");
 }
 #endif
 
@@ -1774,30 +1844,26 @@ void sched_setaffinity_tracking(struct task_struct *task, const struct cpumask *
 	}
 }
 
-void android_rvh_sched_setaffinity_handler(void *unused, struct task_struct *p,
-					const struct cpumask *in_mask,
-					int *retval)
+void android_rvh_set_cpus_allowed_by_task_handler(void *unused, const struct cpumask *cpu_valid_mask,
+	const struct cpumask *new_mask, struct task_struct *task, unsigned int *dest_cpu)
 {
 	struct oplus_task_struct *ots;
-	/* nothing to do if the affinity call failed */
-	if (*retval)
-		return;
 
-	ots = get_oplus_task_struct(p);
+	ots = get_oplus_task_struct(task);
 	if (IS_ERR_OR_NULL(ots))
 		return;
 
-	if (cpumask_weight(in_mask) == nr_cpu_ids) {
+	if (cpumask_weight(new_mask) == nr_cpu_ids) {
 		clear_bit(OTS_STATE_SET_AFFINITY, &ots->state);
 		ots->affinity_pid = -1;
 		ots->affinity_tgid = -1;
 		if (unlikely(global_debug_enabled & DEBUG_FTRACE)) {
-			pr_info("clear affinity to task pid=%d comm=%s\n", p->pid, p->comm);
+			pr_info("clear affinity to task pid=%d comm=%s\n", task->pid, task->comm);
 		}
 		return;
 	}
 
-	sched_setaffinity_tracking(p, in_mask);
+	sched_setaffinity_tracking(task, new_mask);
 }
 
 /* TODO: [ALM:7849986] This code should be removed after 2024.09.27 */

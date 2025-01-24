@@ -394,7 +394,6 @@ static ssize_t oplus_display_set_seed(struct kobject *obj,
 	}
 #endif /* OPLUS_FEATURE_DISPLAY_ONSCREENFINGERPRINT */
 
-	/* if (__oplus_get_power_status() == OPLUS_DISPLAY_POWER_ON) { */
 	if (display->panel->power_mode == SDE_MODE_DPMS_ON) {
 		if (get_main_display() == NULL) {
 			OPLUS_DSI_ERR("display is null\n");
@@ -467,7 +466,6 @@ static ssize_t oplus_display_set_spr(struct kobject *obj,
 
 	__oplus_display_set_spr(temp_save);
 
-	/* if (__oplus_get_power_status() == OPLUS_DISPLAY_POWER_ON) { */
 	if (display->panel->power_mode == SDE_MODE_DPMS_ON) {
 		if (get_main_display() == NULL) {
 			OPLUS_DSI_ERR("display is null\n");
@@ -805,7 +803,6 @@ static ssize_t oplus_display_set_panel_reg(struct kobject *obj,
 		payload[index] = reg[index + 1];
 	}
 
-	/* if (__oplus_get_power_status() == OPLUS_DISPLAY_POWER_ON) { */
 	if (display->panel->power_mode != SDE_MODE_DPMS_OFF) {
 		/* enable the clk vote for CMD mode panels */
 		mutex_lock(&display->display_lock);
@@ -1011,7 +1008,6 @@ static ssize_t oplus_display_get_panel_dsc(struct kobject *obj,
 		return -EINVAL;
 	}
 
-	/* if (__oplus_get_power_status() == OPLUS_DISPLAY_POWER_ON) { */
 	if (display->panel->power_mode == SDE_MODE_DPMS_ON) {
 		if (get_main_display() == NULL) {
 			OPLUS_DSI_ERR("display is null\n");
@@ -1072,11 +1068,16 @@ static ssize_t oplus_display_dump_info(struct kobject *obj,
 static ssize_t oplus_display_get_power_status(struct kobject *obj,
 		struct kobj_attribute *attr, char *buf)
 {
-	OPLUS_DSI_INFO("oplus_display_get_power_status = %d, request power :%d\n",
-			__oplus_get_power_status(), oplus_request_power_status);
+	struct dsi_display *display = oplus_display_get_current_display();
 
-	return sysfs_emit(buf, "kernel power :%d   request power :%d\n",
-			__oplus_get_power_status(), oplus_request_power_status);
+	if (!display || !display->panel) {
+		OPLUS_DSI_ERR("display is null or display->panel is null\n");
+		return -EINVAL;
+	}
+
+	OPLUS_DSI_INFO("oplus_display_get_power_status = %d\n", display->panel->power_mode);
+
+	return sysfs_emit(buf, "kernel power :%d\n", display->panel->power_mode);
 }
 
 static ssize_t oplus_display_set_power_status(struct kobject *obj,
@@ -1085,10 +1086,8 @@ static ssize_t oplus_display_set_power_status(struct kobject *obj,
 {
 	int temp_save = 0;
 
-	sscanf(buf, "%du", &temp_save);
+	sscanf(buf, "%d", &temp_save);
 	OPLUS_DSI_INFO("oplus_display_set_power_status = %d\n", temp_save);
-
-	__oplus_set_request_power_status(temp_save);
 
 	return count;
 }
@@ -1712,8 +1711,14 @@ static ssize_t oplus_display_get_dc_dim_alpha(struct kobject *obj,
 		struct kobj_attribute *attr, char *buf)
 {
 	int ret = 0;
+	struct dsi_display *display = oplus_display_get_current_display();
 
-	if (__oplus_get_power_status() != OPLUS_DISPLAY_POWER_ON) {
+	if (!display || !display->panel) {
+		OPLUS_DSI_ERR("display is null\n");
+		return -EINVAL;
+	}
+
+	if (display->panel->power_mode != SDE_MODE_DPMS_ON) {
 		ret = 0;
 	}
 
@@ -2315,7 +2320,6 @@ static ssize_t oplus_display_set_dynamic_osc_clock(struct kobject *obj,
 		return count;
 	}
 
-	/* if (__oplus_get_power_status() != OPLUS_DISPLAY_POWER_ON) { */
 	if (display->panel->power_mode != SDE_MODE_DPMS_ON) {
 		OPLUS_DSI_INFO("display panel in off status\n");
 		return -EFAULT;

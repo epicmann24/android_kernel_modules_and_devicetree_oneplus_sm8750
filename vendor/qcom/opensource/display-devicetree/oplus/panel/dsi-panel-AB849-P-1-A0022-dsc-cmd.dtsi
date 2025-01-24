@@ -43,6 +43,7 @@
 		qcom,mdss-dsi-panel-peak-brightness = <20000000>;
 		qcom,mdss-dsi-panel-average-brightness = <2000000>;
 		qcom,mdss-dsi-panel-blackness-level = <4000>;
+		qcom,mdss-disable-cesta-hw-sleep;
 
 		qcom,mdss-dsi-display-timings {
 			timing@sa_fhd_60{
@@ -125,7 +126,7 @@
 					/* Edge Dimming Code */
 					39 00 00 40 00 00 03 F0 5A 5A
 					39 00 00 40 00 00 04 B0 00 02 B1
-					39 00 00 40 00 00 05 B1 BF BF FF FF
+					39 00 00 40 00 00 05 B1 BF BF CF FF
 					39 00 00 00 00 00 03 F0 A5 A5
 					/* SPR Code */
 					39 00 00 40 00 00 03 F0 5A 5A
@@ -205,6 +206,12 @@
 					39 00 00 40 00 00 05 B1 73 5C D6 AB
 					39 00 00 40 00 00 02 F7 0F
 					39 00 00 40 00 00 03 F0 A5 A5
+					/* PMIC transition period W/A */
+					39 00 00 40 00 00 03 F0 5A 5A
+					39 00 00 40 00 00 04 B0 00 94 D4
+					39 00 00 40 00 00 03 D4 11 00
+					39 00 00 40 00 00 02 F7 0F
+					39 00 00 00 00 00 03 F0 A5 A5
 					/* Solve the problem of mirror display shadow */
 					39 00 00 40 00 00 03 F0 5A 5A
 					39 00 00 40 00 00 04 B0 00 4A E1
@@ -220,13 +227,17 @@
 					39 00 00 40 00 00 02 F7 0F
 					39 00 00 00 00 00 03 F0 A5 A5
 
+					39 00 00 40 00 00 03 F0 5A 5A
+					39 00 00 40 00 00 04 B0 00 8D E1
+					39 00 00 40 00 00 02 E1 10
+					39 00 00 00 00 00 03 F0 A5 A5
 					/* display on */
 					05 00 00 00 00 00 01 29
 				];
 
 				qcom,mdss-dsi-lp1-command = [
 					/* AOD 30Hz */
-					39 00 00 40 0C 00 03 F0 5A 5A
+					39 00 00 40 00 00 03 F0 5A 5A
 					39 00 00 40 00 00 03 FC 5A 5A
 					39 00 00 40 00 00 04 B0 00 C6 D5
 					15 00 00 40 00 00 02 D5 00
@@ -719,7 +730,7 @@
 					/* Edge Dimming Code */
 					39 00 00 40 00 00 03 F0 5A 5A
 					39 00 00 40 00 00 04 B0 00 02 B1
-					39 00 00 40 00 00 05 B1 BF BF FF FF
+					39 00 00 40 00 00 05 B1 BF BF CF FF
 					39 00 00 00 00 00 03 F0 A5 A5
 					/* SPR Code */
 					39 00 00 40 00 00 03 F0 5A 5A
@@ -799,6 +810,12 @@
 					39 00 00 40 00 00 05 B1 73 5C D6 AB
 					39 00 00 40 00 00 02 F7 0F
 					39 00 00 40 00 00 03 F0 A5 A5
+					/* PMIC transition period W/A */
+					39 00 00 40 00 00 03 F0 5A 5A
+					39 00 00 40 00 00 04 B0 00 94 D4
+					39 00 00 40 00 00 03 D4 11 00
+					39 00 00 40 00 00 02 F7 0F
+					39 00 00 00 00 00 03 F0 A5 A5
 					/* Solve the problem of mirror display shadow */
 					39 00 00 40 00 00 03 F0 5A 5A
 					39 00 00 40 00 00 04 B0 00 4A E1
@@ -814,13 +831,17 @@
 					39 00 00 40 00 00 02 F7 0F
 					39 00 00 00 00 00 03 F0 A5 A5
 
+					39 00 00 40 00 00 03 F0 5A 5A
+					39 00 00 40 00 00 04 B0 00 8D E1
+					39 00 00 40 00 00 02 E1 10
+					39 00 00 00 00 00 03 F0 A5 A5
 					/* display on */
 					05 00 00 00 00 00 01 29
 				];
 
 				qcom,mdss-dsi-lp1-command = [
 					/* AOD 30Hz */
-					39 00 00 40 05 00 03 F0 5A 5A
+					39 00 00 40 00 00 03 F0 5A 5A
 					39 00 00 40 00 00 03 FC 5A 5A
 					39 00 00 40 00 00 04 B0 00 C6 D5
 					15 00 00 40 00 00 02 D5 00
@@ -1314,7 +1335,7 @@
 					/* Edge Dimming Code */
 					39 00 00 40 00 00 03 F0 5A 5A
 					39 00 00 40 00 00 04 B0 00 02 B1
-					39 00 00 40 00 00 05 B1 BF BF FF FF
+					39 00 00 40 00 00 05 B1 BF BF CF FF
 					39 00 00 00 00 00 03 F0 A5 A5
 					/* SPR Code */
 					39 00 00 40 00 00 03 F0 5A 5A
@@ -1394,6 +1415,12 @@
 					39 00 00 40 00 00 05 B1 73 5C D6 AB
 					39 00 00 40 00 00 02 F7 0F
 					39 00 00 40 00 00 03 F0 A5 A5
+					/* PMIC transition period W/A */
+					39 00 00 40 00 00 03 F0 5A 5A
+					39 00 00 40 00 00 04 B0 00 94 D4
+					39 00 00 40 00 00 03 D4 11 00
+					39 00 00 40 00 00 02 F7 0F
+					39 00 00 00 00 00 03 F0 A5 A5
 					/* Solve the problem of mirror display shadow */
 					39 00 00 40 00 00 03 F0 5A 5A
 					39 00 00 40 00 00 04 B0 00 4A E1
@@ -1409,13 +1436,17 @@
 					39 00 00 40 00 00 02 F7 0F
 					39 00 00 00 00 00 03 F0 A5 A5
 
+					39 00 00 40 00 00 03 F0 5A 5A
+					39 00 00 40 00 00 04 B0 00 8D E1
+					39 00 00 40 00 00 02 E1 10
+					39 00 00 00 00 00 03 F0 A5 A5
 					/* display on */
 					05 00 00 00 00 00 01 29
 				];
 
 				qcom,mdss-dsi-lp1-command = [
 					/* AOD 30Hz */
-					39 00 00 40 05 00 03 F0 5A 5A
+					39 00 00 40 00 00 03 F0 5A 5A
 					39 00 00 40 00 00 03 FC 5A 5A
 					39 00 00 40 00 00 04 B0 00 C6 D5
 					15 00 00 40 00 00 02 D5 00
@@ -1903,6 +1934,8 @@
 	oplus,ofp-longrui-aod-config = <0x02>;
 	oplus,ofp-need-to-bypass-gamut;
 	oplus,ofp-need-to-wait-data-before-aod-on;
+	oplus,ofp-need-to-wait-te-before-aod-on;
+	oplus,ofp-need-to-wait-sometime-before-aod-off;
 
 	/* pwm config */
 	/*	oplus,pwm-switch-config:

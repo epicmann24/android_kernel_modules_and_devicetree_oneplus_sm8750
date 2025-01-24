@@ -27,6 +27,7 @@
 #include "oplus_display_panel_cmd.h"
 #include "oplus_display_power.h"
 #include "oplus_display_device.h"
+#include "oplus_display_proc.h"
 
 #define OPLUS_BACKLIGHT_WINDOW_SIZE 5
 
@@ -44,6 +45,8 @@ extern struct panel_id panel_id;
 unsigned int oplus_bl_print_window = OPLUS_BACKLIGHT_WINDOW_SIZE;
 extern char oplus_global_hbm_flags;
 extern int dcc_flags;
+
+extern bool g_gamma_regs_read_done;
 
 static DEFINE_SPINLOCK(g_bk_lock);
 
@@ -81,7 +84,7 @@ void oplus_display_set_backlight_post(struct sde_connector *c_conn,
 							&& dc_apollo.pcc_last == display->panel->oplus_panel.dc_apollo_sync_brightness_level_pcc) {
 							rc = wait_event_timeout(dc_apollo.bk_wait, dc_apollo.dc_pcc_updated, msecs_to_jiffies(17));
 							if (!rc) {
-								pr_err("dc wait timeout\n");
+								OPLUS_DSI_ERR("dc wait timeout\n");
 							}
 							else {
 								oplus_backlight_wait_vsync(c_conn->encoder);
@@ -96,7 +99,7 @@ void oplus_display_set_backlight_post(struct sde_connector *c_conn,
 							&& dc_apollo.pcc_last >= display->panel->oplus_panel.dc_apollo_sync_brightness_level_pcc_min) {
 							rc = wait_event_timeout(dc_apollo.bk_wait, dc_apollo.dc_pcc_updated, msecs_to_jiffies(17));
 							if (!rc) {
-								pr_err("dc wait timeout\n");
+								OPLUS_DSI_ERR("dc wait timeout\n");
 							}
 							else {
 								oplus_backlight_wait_vsync(c_conn->encoder);
@@ -164,7 +167,7 @@ void oplus_bridge_pre_enable(struct dsi_display *display, struct dsi_display_mod
 void oplus_display_enable_pre(struct dsi_display *display)
 {
 	oplus_display_update_current_display();
-	__oplus_set_power_status(OPLUS_DISPLAY_POWER_ON);
+	display->panel->oplus_panel.power_mode_early = SDE_MODE_DPMS_ON;
 	display->panel->power_mode = SDE_MODE_DPMS_ON;
 	__oplus_read_apl_thread_ctl(true);
 
@@ -175,6 +178,10 @@ void oplus_display_enable_pre(struct dsi_display *display)
 		oplus_display_read_serial_number(display, &display->oplus_display.panel_sn);
 		OPLUS_DSI_INFO("panel serial_number don't read in UEFI, read panel serial_number = [%016lX]\n",
 					display->oplus_display.panel_sn);
+	}
+
+	if (oplus_display_panel_gamma_compensation(display)) {
+		OPLUS_DSI_ERR("panel gamma compensation failed\n");
 	}
 
 	return;
@@ -198,6 +205,21 @@ void oplus_display_enable_post(struct dsi_display *display)
 	}
 
 	return;
+}
+
+int oplus_panel_enable_pre(struct dsi_panel *panel)
+{
+	int rc = 0;
+
+	OPLUS_DSI_INFO("oplus_panel_enable\n");
+	if (panel->oplus_panel.gamma_compensation_support && g_gamma_regs_read_done) {
+		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_GAMMA_COMPENSATION, false);
+		if (rc) {
+			OPLUS_DSI_ERR("send DSI_CMD_GAMMA_COMPENSATION failed\n");
+		}
+	}
+
+	return rc;
 }
 
 int oplus_panel_enable_post(struct dsi_panel *panel)
@@ -224,7 +246,6 @@ int oplus_panel_enable_post(struct dsi_panel *panel)
 	}
 
 	panel->oplus_panel.need_power_on_backlight = true;
-	__oplus_set_power_status(OPLUS_DISPLAY_POWER_ON);
 	panel->power_mode = SDE_MODE_DPMS_ON;
 
 	return 0;
@@ -258,13 +279,13 @@ void oplus_panel_enable_init(struct dsi_panel *panel)
 void oplus_display_disable_post(struct dsi_display *display)
 {
 	oplus_display_update_current_display();
+	display->panel->oplus_panel.power_mode_early = SDE_MODE_DPMS_OFF;
 
 	return;
 }
 
 void oplus_panel_disable_post(struct dsi_panel *panel)
 {
-	__oplus_set_power_status(OPLUS_DISPLAY_POWER_OFF);
 	oplus_global_hbm_flags = 0;
 
 	return;
@@ -289,6 +310,8 @@ int oplus_display_read_status(struct dsi_panel *panel)
 {
 	int rc = 0;
 
+	oplus_panel_backlight_check(panel);
+
 	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_ESD_SWITCH_PAGE, false);
 	if (rc) {
 		DSI_ERR("[%s] failed to send DSI_CMD_ESD_SWITCH_PAGE, rc=%d\n", panel->name, rc);
@@ -301,11 +324,15 @@ int oplus_display_read_status(struct dsi_panel *panel)
 bool oplus_display_check_status_pre(struct dsi_panel *panel)
 {
 	if (atomic_read(&panel->oplus_panel.esd_pending)) {
+		OPLUS_DSI_INFO("Skip the check because esd is pending\n");
 		return true;
 	}
 
-	if (panel->power_mode != SDE_MODE_DPMS_ON) {
-		OPLUS_DSI_WARN("Skip the check because panel power mode isn't power on!\n");
+	if (panel->power_mode != SDE_MODE_DPMS_ON
+			|| panel->oplus_panel.power_mode_early != SDE_MODE_DPMS_ON) {
+		OPLUS_DSI_INFO("Skip the check because panel power mode isn't power on, "
+				"power_mode_early=%d, power_mode=%d\n",
+				panel->oplus_panel.power_mode_early, panel->power_mode);
 		return true;
 	}
 
@@ -376,7 +403,7 @@ void oplus_display_res_init(struct dsi_display *display)
 void oplus_display_bind_pre(struct dsi_display *display)
 {
 	if(0 != oplus_display_set_vendor(display)) {
-		pr_err("maybe send a null point to oplus display manager\n");
+		OPLUS_DSI_ERR("maybe send a null point to oplus display manager\n");
 	}
 
 	/* Add for SUA feature request */
@@ -422,15 +449,20 @@ void oplus_display_validate_mode_change_post(struct dsi_display *display,
 
 void oplus_display_register(void)
 {
-	if(oplus_display_panel_init())
-		pr_err("fail to init oplus_display_panel_init\n");
+	if(oplus_display_panel_init()) {
+		OPLUS_DSI_ERR("oplus_display_panel_init fail\n");
+	}
+
+	if(oplus_display_proc_init()) {
+		OPLUS_DSI_ERR("oplus_display_proc_init fail\n");
+	}
 }
 
 void oplus_panel_tx_cmd_set_pre(struct dsi_panel *panel,
 				enum dsi_cmd_set_type *type)
 {
 	oplus_panel_cmd_switch(panel, type);
-	oplus_panel_cmdq_pack_handle(panel, *type, true);
+	oplus_panel_cmdq_sync_handle(panel, *type, true);
 	oplus_panel_cmd_print(panel, *type);
 
 	return;
@@ -439,7 +471,7 @@ void oplus_panel_tx_cmd_set_pre(struct dsi_panel *panel,
 void oplus_panel_tx_cmd_set_mid(struct dsi_panel *panel,
 				enum dsi_cmd_set_type type)
 {
-	oplus_panel_cmdq_pack_handle(panel, type, false);
+	oplus_panel_cmdq_sync_handle(panel, type, false);
 
 	return;
 }
@@ -582,7 +614,7 @@ void oplus_encoder_off_work(struct sde_encoder_virt *sde_enc)
 	if (sde_enc->cur_master && sde_enc->cur_master->connector) {
 		c_conn = to_sde_connector(sde_enc->cur_master->connector);
 		if (c_conn) {
-			oplus_panel_cmdq_pack_status_reset(c_conn);
+			oplus_panel_cmdq_sync_count_reset(c_conn);
 		}
 	}
 
@@ -617,7 +649,7 @@ void oplus_encoder_phys_cmd_te_rd_ptr_irq_post(struct sde_encoder_phys *phys_enc
 
 	conn = to_sde_connector(phys_enc->connector);
 	if (conn) {
-		oplus_panel_cmdq_pack_status_reset(conn);
+		oplus_panel_cmdq_sync_count_decrease(conn);
 	}
 
 	return;
@@ -711,14 +743,28 @@ int oplus_panel_parse_cmd_sets_sub(struct dsi_panel_cmd_set *cmd, const char *st
 {
 	if (!state || !strcmp(state, "dsi_lp_mode")) {
 		cmd->state = DSI_CMD_SET_STATE_LP;
+		cmd->oplus_cmd_set.sync_count = 0;
 	} else if (!strcmp(state, "dsi_hs_mode")) {
 		cmd->state = DSI_CMD_SET_STATE_HS;
-	} else if (!strcmp(state, "dsi_lp_pack_mode")) {
+		cmd->oplus_cmd_set.sync_count = 0;
+	} else if (!strcmp(state, "dsi_lp_sync1_mode")) {
 		cmd->state = DSI_CMD_SET_STATE_LP;
-		cmd->oplus_cmd_set.pack = true;
-	} else if (!strcmp(state, "dsi_hs_pack_mode")) {
+		cmd->oplus_cmd_set.sync_count = 1;
+	} else if (!strcmp(state, "dsi_hs_sync1_mode")) {
 		cmd->state = DSI_CMD_SET_STATE_HS;
-		cmd->oplus_cmd_set.pack = true;
+		cmd->oplus_cmd_set.sync_count = 1;
+	} else if (!strcmp(state, "dsi_lp_sync2_mode")) {
+		cmd->state = DSI_CMD_SET_STATE_LP;
+		cmd->oplus_cmd_set.sync_count = 2;
+	} else if (!strcmp(state, "dsi_hs_sync2_mode")) {
+		cmd->state = DSI_CMD_SET_STATE_HS;
+		cmd->oplus_cmd_set.sync_count = 2;
+	} else if (!strcmp(state, "dsi_lp_sync3_mode")) {
+		cmd->state = DSI_CMD_SET_STATE_LP;
+		cmd->oplus_cmd_set.sync_count = 3;
+	} else if (!strcmp(state, "dsi_hs_sync3_mode")) {
+		cmd->state = DSI_CMD_SET_STATE_HS;
+		cmd->oplus_cmd_set.sync_count = 3;
 	} else {
 		return -1;
 	}
@@ -728,21 +774,36 @@ int oplus_panel_parse_cmd_sets_sub(struct dsi_panel_cmd_set *cmd, const char *st
 
 void oplus_panel_set_lp1(struct dsi_panel *panel)
 {
-	__oplus_set_power_status(OPLUS_DISPLAY_POWER_DOZE);
+	panel->oplus_panel.pwm_params.into_aod_timestamp = ktime_get();
 
 	return;
 }
 
 void oplus_panel_set_lp2(struct dsi_panel *panel)
 {
-	__oplus_set_power_status(OPLUS_DISPLAY_POWER_DOZE_SUSPEND);
 	return;
 }
 
-void oplus_panel_set_nolp(struct dsi_panel *panel)
+void oplus_panel_set_nolp_pre(struct dsi_panel *panel)
+{
+	unsigned int time_interval = 0;
+	unsigned int aod_sleep_time = 0;
+
+	DSI_INFO("debug for dsi_panel_set_nolp\n");
+	if (panel->oplus_panel.interval_time_nolp_pre) {
+		time_interval = ktime_to_us(ktime_sub(ktime_get(), panel->oplus_panel.pwm_params.into_aod_timestamp));
+		DSI_DEBUG("aod in and off time_interval us = %d\n", time_interval);
+		if (time_interval < INTO_OUT_AOD_INTERVOL) {
+			aod_sleep_time = INTO_OUT_AOD_INTERVOL - time_interval;
+			usleep_range(aod_sleep_time, aod_sleep_time+100);
+		}
+	}
+	return;
+}
+
+void oplus_panel_set_nolp_post(struct dsi_panel *panel)
 {
 	oplus_panel_set_aod_off_te_timestamp(panel);
-	__oplus_set_power_status(OPLUS_DISPLAY_POWER_ON);
 
 	return;
 }
@@ -781,6 +842,7 @@ void oplus_display_ops_init(struct oplus_display_ops *oplus_display_ops)
 	oplus_display_ops->display_enable_pre = oplus_display_enable_pre;
 	oplus_display_ops->display_enable_mid = oplus_display_enable_mid;
 	oplus_display_ops->display_enable_post = oplus_display_enable_post;
+	oplus_display_ops->panel_enable_pre = oplus_panel_enable_pre;
 	oplus_display_ops->panel_enable_post = oplus_panel_enable_post;
 	oplus_display_ops->panel_init = oplus_panel_enable_init;
 	oplus_display_ops->panel_set_pinctrl_state = oplus_panel_set_pinctrl_state;
@@ -832,5 +894,6 @@ void oplus_display_ops_init(struct oplus_display_ops *oplus_display_ops)
 	/* aod */
 	oplus_display_ops->panel_set_lp1 = oplus_panel_set_lp1;
 	oplus_display_ops->panel_set_lp2 = oplus_panel_set_lp2;
-	oplus_display_ops->panel_set_nolp = oplus_panel_set_nolp;
+	oplus_display_ops->panel_set_nolp_pre = oplus_panel_set_nolp_pre;
+	oplus_display_ops->panel_set_nolp_post = oplus_panel_set_nolp_post;
 }

@@ -129,7 +129,8 @@
 				qcom,mdss-dsi-uir-off-loading-effect-1-command = [
 					/* Loading On 100% */
 					39 00 00 40 00 00 04 FF 5A A5 1E
-					39 00 00 40 00 00 02 80 89
+					39 00 00 40 00 00 1F 92 AA 62 EA EA EA AA EA EA EA EA AA EA EA EA EA AA EA EA EA EA AA EA EA EA EA AA EA EA EA EA
+					39 00 00 40 00 00 02 80 A9
 					39 00 00 40 00 00 02 85 58
 					39 00 00 40 00 00 0C 99 88 00 00 88 00 00 88 00 00 08 00
 					39 00 00 40 00 00 03 81 30 50

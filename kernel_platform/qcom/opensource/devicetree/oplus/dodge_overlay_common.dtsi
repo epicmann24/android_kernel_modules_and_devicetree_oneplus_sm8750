@@ -72,4 +72,5 @@
 		compatible = "oplus,shell-temp";
 	};
 	//#endif /* OPLUS_FEATURE_THERMAL_HORAE */
+
 };

@@ -398,6 +398,7 @@
 					OPLUS_IC_FUNC_GAUGE_SET_CALIB_TIME
 					OPLUS_IC_FUNC_GAUGE_SET_LAST_CC
 					OPLUS_IC_FUNC_GAUGE_GET_LAST_CC
+					OPLUS_IC_FUNC_GAUGE_GET_REAL_TIME_CURR
 				>;
 				virqs = <
 					OPLUS_IC_VIRQ_ERR
@@ -449,6 +450,7 @@
 					OPLUS_IC_FUNC_RX_DIS_INSERT
 					OPLUS_IC_FUNC_RX_STANDBY_CONFIG
 					OPLUS_IC_FUNC_RX_SET_COMU
+					OPLUS_IC_FUNC_RX_GET_TX_ID
 				>;
 				virqs = <
 					OPLUS_IC_VIRQ_ERR
@@ -708,12 +710,6 @@
 		oplus_spec,volt_of_fast_drop_soc_1 = <2700>;
 		oplus_spec,support_uisoc_low_battery_control;
 
-		/* 2s battery */
-		oplus_spec,wired-aging-ffc-version = <AGING_FFC_V1>;
-		oplus_spec,wired-aging-ffc-offset-mv = <15 30
-							10 20>;
-		oplus_spec,wired-aging-ffc-cycle-thr = <500 1000>;
-
 		oplus_spec,wls-ffc-step-max = <2>;
 		oplus_spec,wls-ffc-fv-mv = <4590 4590>;
 		oplus_spec,wls-ffc-fv-cutoff-mv = <4545 4515 4500
@@ -827,14 +823,6 @@
 		compatible = "oplus,smart_charge";
 		oplus,quick_mode_gain_support;
 		oplus,smart_chg_soh_support;
-	};
-	oplus_chg_quirks: oplus,chg_quirks {
-		compatible = "oplus,chg_quirks";
-	};
-	oplus_retention_charge: oplus,retention_charge {
-		compatible = "oplus,retention_charge";
-		oplus,topic-update-interval = <5000>;
-		oplus,support_retention_name = "oplus_retention_quirks";
 	};
 };
 
@@ -1074,6 +1062,7 @@
 		oplus,adsp_ufcs_project;
 		oplus,ufcs_boot_time_retry = <10>;
 		oplus,impedance_unit = <&oplus_ufcs_impedance_unit>;
+		oplus,ufcs_need_reset_adapter;
 
 		oplus,target_vbus_mv = <11000>;
 		oplus,curr_max_ma = <9100>;

@@ -1,6 +1,8 @@
 #include "cam_sensor_custom.h"
 #include "cam_debug.h"
 
+#include "tmf8806_driver.h"
+#include "tof8801_driver.h"
 #include "cam_trace.h"
 #include "cam_kevent_fb_custom.h"
 
@@ -330,10 +332,7 @@ int cam_ext_sensor_stop(struct cam_sensor_ctrl_t *s_ctrl)
 
 	mutex_lock(&(s_ctrl->sensor_power_state_mutex));
 	if (s_ctrl->sensor_power_state == CAM_SENSOR_POWER_ON) {
-		oplus_cam_monitor_state(s_ctrl,
-				s_ctrl->v4l2_dev_str.ent_function,
-				CAM_SENSOR_NORMAL_POWER_UP_TYPE,
-				false);
+
 	} else {
 		CAM_EXT_INFO(CAM_EXT_SENSOR, "sensor had power down, return");
 		mutex_unlock(&(s_ctrl->sensor_power_state_mutex));
@@ -346,6 +345,10 @@ int cam_ext_sensor_stop(struct cam_sensor_ctrl_t *s_ctrl)
 	if (s_ctrl->sensor_state == CAM_SENSOR_INIT) {
 		//power off for sensor, if sensor had power up and had not acquire device.
 		CAM_EXT_INFO(CAM_EXT_SENSOR, "sensor power down in advance");
+		oplus_cam_monitor_state(s_ctrl,
+				s_ctrl->v4l2_dev_str.ent_function,
+				CAM_SENSOR_NORMAL_POWER_UP_TYPE,
+				false);
 		rc = cam_sensor_power_down(s_ctrl);
 	}
 
@@ -934,6 +937,8 @@ int32_t cam_ext_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			goto free_power_settings;
 		}
 
+		tmf8806_clean();
+		tof8801_clean();
 		/*
 		* Set probe succeeded flag to 1 so that no other camera shall
 		* probed on this slot

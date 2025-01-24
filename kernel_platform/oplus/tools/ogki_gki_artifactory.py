@@ -12,7 +12,16 @@ import fnmatch
 import hashlib
 import json
 from requests.auth import HTTPBasicAuth
-import datetime
+import secure_upload
+import glob
+
+file_patterns = [
+    "*.patch",
+    "*.log",
+    "*abogki*",
+    "config.txt",
+    "log.tar.gz"
+]
 
 file_paths = [
     "boot.img",
@@ -21,17 +30,23 @@ file_paths = [
     "BUILD_INFO.txt",
     "system_dlkm.img",
     "vmlinux",
-    "md5_sums.txt",
     "gki-info.txt",
-    "vmlinux.symvers"
+    "vmlinux.symvers",
+    "md5_sums.txt"
 ]
 remote_base_address = "xxx/aosp-gki-image-local/"
 remote_api_address  = "xxx/aosp-gki-image-local/"
 
 # Function to check validity of date
-def is_valid_date(date):
-    year, month = map(int, date.split('-'))
-    return 1 <= month <= 12
+def is_valid_date(date_str):
+    """
+    Helper function to validate date format YYYY-MM.
+    """
+    try:
+        datetime.strptime(date_str, "%Y-%m")
+        return True
+    except ValueError:
+        return False
 
 def validate_gki_file_name(file_path):
     # Get the file name
@@ -77,42 +92,38 @@ def validate_ogki_file_name(file_path):
     dir_name = os.path.basename(os.path.normpath(file_path))
 
     # Use regular expression to extract the specified fields
-    regex = r"(\w+)-(\d+\.\d+)-(\d{4}-\d{2})-(\w+)_r(\d+)"
+    regex = r"(\w+)-(\d+\.\d+)-(\d{4}-\d{2})_r(\d+)_abogki(\d+)"
     matches = re.match(regex, dir_name)
 
     parts = dir_name.split('-')
+
     # 获取第一个字段 android15-6.6
     android_version = '-'.join(parts[:2])
 
-    # 获取第二个字段 android15-6.6-2024-06
+    # 获取第二个字段 android15-6.6-2024-07
     tmp_release_date = '-'.join(parts[:4])
     android_version_release_date = tmp_release_date.split('_')[0]
-    #print("version: {} \nversion_date: {}".format(android_version, android_version_release_date))
+
     if matches:
         # 获取结果
         version = matches.group(1)
         kernel_version = matches.group(2)
         date = matches.group(3)
-        ogki = matches.group(4)
-        release = matches.group(5)
+        release = matches.group(4)
+        ogki_number = matches.group(5)
 
         # 进行格式和有效性判断
         if version.startswith('android') and version[7:].isdigit() and \
             re.match(r'\d+\.\d+', kernel_version) and \
-            ogki == "ogki" and \
-            is_valid_date(date) and release.isdigit():
-            #print("Android version:", version)
-            #print("Kernel version:", kernel_version)
-            #print("Date:", date)
-            #print("ogki:", ogki)
-            #print("Release:", release)
+            is_valid_date(date) and release.isdigit() and ogki_number.isdigit():
             return android_version, android_version_release_date, dir_name
         else:
-            print("File path format error,you need input file name {} like android15-6.6-2024-06-ogki_r1".format(dir_name))
+            print("File path format error, you need to input file name like android15-6.6-2024-07_r1_abogki359105495")
             return None, None, None
     else:
-        print("No matching file path found,you need input file name {} like android15-6.6-2024-06-ogki_r1".format(dir_name))
+        print("No matching file path found, you need to input file name like android15-6.6-2024-07_r1_abogki359105495")
         return None, None, None
+
 
 def read_content(file_path, key):
     try:
@@ -234,6 +245,60 @@ def parse_cmd_args():
       '\nmd5_sums:', args.md5_sums, '\nconfig:', args.config, '\nforce:', args.force)
     return args
 
+def upload_file(local_path, remote_path):
+
+    # 获取当前脚本所在目录
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    secure_upload_path = os.path.join(script_dir, "secure_upload")
+
+    # 检查 secure_upload 文件是否存在
+    if not os.path.exists(secure_upload_path):
+        print("Error: {} not found.".format(secure_upload_path))
+        return
+
+    command = [
+            secure_upload_path,
+            "-l", local_path,
+            "-r", remote_path
+    ]
+
+    try:
+        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+        if result.returncode != 0:
+            print("Failed to upload {} to {}".format(local_path, remote_path))
+            print("Error: {}".format(result.stderr))
+            raise Exception(result.stderr)
+        else:
+            print("Successfully uploaded {} to {}".format(local_path, remote_path))
+
+    except Exception as e:
+        print("Exception occurred while uploading {} to {}: {}".format(local_path, remote_path, e))
+
+def find_files(directory, patterns):
+    """
+    在指定目录中搜索与模式匹配的文件
+
+    参数:
+    directory (str): 要搜索的目录
+    patterns (list): 要匹配的文件模式列表
+
+    返回:
+    list: 匹配的文件名列表
+    """
+    all_files = []
+
+    for pattern in patterns:
+        # 构建搜索路径
+        search_pattern = os.path.join(directory, pattern)
+        # 使用glob找到匹配的文件
+        matching_files = glob.glob(search_pattern)
+        # 只获取文件名，不包括路径
+        matching_filenames = [os.path.basename(file) for file in matching_files]
+        # 添加到结果列表
+        all_files.extend(matching_filenames)
+
+    return all_files
+
 def upload_files_to_server(user, password, local_dir, file_paths, remote_base_address):
     for file_name in file_paths:
         local_path = os.path.join(local_dir, file_name)
@@ -241,36 +306,12 @@ def upload_files_to_server(user, password, local_dir, file_paths, remote_base_ad
         if not os.path.exists(local_path):
             print("Error: {} not exist please check again\n".format(local_path))
             sys.exit(1)
-        curl_command = [
-            "curl",
-            "-u", "{}:{}".format(user, password),
-            "-T", local_path,
-            remote_path
-        ]
-
-        try:
-            result = subprocess.run(curl_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
-
-            # Check if stdout contains a JSON error message
-            try:
-                stdout_json = json.loads(result.stdout)
-                if 'errors' in stdout_json:
-                    print("Failed to upload {} to {}".format(local_path, remote_path))
-                    for error in stdout_json['errors']:
-                        print("Error: Status {} - Message: {}".format(error.get('status', 'Unknown'), error.get('message', 'No message')))
-                        if "Unauthorized" in error.get('message', 'No message'):
-                            print("please input user name and password")
-                    continue
-            except json.JSONDecodeError:
-                pass  # stdout is not JSON, might be normal output
-
-            if result.returncode != 0:
-                print("Failed to upload {} to {}".format(local_path, remote_path))
-                print("Error: {}".format(result.stderr))
-            else:
-                print("Successfully uploaded {} to {}".format(local_path, remote_path))
-        except Exception as e:
-            print("Exception occurred while uploading {} to {}: {}".format(local_path, remote_path, e))
+        if user and password:
+            print("source mode")
+            secure_upload.secure_curl_upload(local_path, remote_path, user, password)
+        else:
+            print("prebuilt mode")
+            upload_file(local_path, remote_path)
 
 def remove_local_files(local_dir, file_paths):
     for file_name in file_paths:
@@ -397,23 +438,26 @@ def find_linux_versions(file_path):
 
 def is_valid_string(input_string, validation_type):
     print("input is {} needed is {}".format(input_string, validation_type))
+
     if validation_type == "OGKI":
-        # 检查字符串是否包含 -ab_o_
-        if "-ab_o_" in input_string:
-            print("type is {} -ab_o_ in string {}".format(validation_type, input_string))
+        # 使用正则表达式检查字符串是否包含 -abogki 后跟一串数字
+        if re.search(r'-abogki\d+', input_string):
+            print("type is {} contains -abogki followed by digits in string {}".format(validation_type, input_string))
             return True
         else:
-            print("type is {} -ab_o_ not in string {}".format(validation_type, input_string))
+            print("type is {} does not contain -abogki followed by digits in string {}".format(validation_type, input_string))
             return False
+
     elif validation_type == "GKI":
-        # 检查字符串是否包含 -ab 但不包含 -ab_o_
-        if "-ab" in input_string and "-ab_o_" not in input_string:
-            print("type is {} only -ab in string {}".format(validation_type, input_string))
+        # 检查字符串是否包含 -ab 但不包含 -abogki
+        if "-ab" in input_string and "-abogki" not in input_string:
+            print("type is {} contains only -ab but not -abogki in string {}".format(validation_type, input_string))
             return True
         else:
-            print("type is {} except only -ab(not -ab_o_) in string {}".format(validation_type, input_string))
-            print("you need upload a GKI image come from Google")
+            print("type is {} does not meet criteria (contains only -ab but not -abogki) in string {}".format(validation_type, input_string))
+            print("you need to upload a GKI image that comes from Google")
             return False
+
     else:
         # 其他验证类型，返回 False
         return False
@@ -544,6 +588,10 @@ def get_artifactory_directories(url, config, api_key=None):
 
         # 按照自然排序规则对目录进行排序
         directories.sort(key=natural_sort_key)
+        dir_path = os.path.dirname(config)
+
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path)
 
         # 写入config文件
         with open(config, 'w') as f:
@@ -555,7 +603,8 @@ def get_artifactory_directories(url, config, api_key=None):
         print('last tag is : {}'.format(directories[-1]))
         return directories
     else:
-        raise Exception("请求失败，状态码：{}".format(response.status_code))
+        print("request fail，status：{}".format(response.status_code))
+        print('may be file not exist, use default')
 
 def get_time_difference_from_last_updated(last_updated):
     try:
@@ -710,6 +759,10 @@ def main():
         if args.force or (image_valid == True and need_upload == True):
             calculate_md5sum(file_paths, "{}/{}".format(args.input.rstrip('/'), args.md5_sums.lstrip('/')), base_path=args.input)
             upload_files_to_server(args.user, args.password, args.input, file_paths, args.address)
+            matched_files = find_files(args.input, file_patterns)
+            print("find  {} in {}".format(file_patterns, args.input))
+            print("find file {}".format(matched_files))
+            upload_files_to_server(args.user, args.password, args.input, matched_files, args.address)
         else:
             if image_valid == False:
                print("image is invalid,Please check again")
@@ -734,7 +787,10 @@ def main():
                 print("image is invalid , please check")
                 sys.exit(1)
         else:
-            print("image exist ignore,if you want download again,you can delete\n",args.out +'/'+ args.md5_sums)
+            print("image exist ignore,if you want download again\nyou can delete",args.out +'/'+ args.md5_sums)
 
 if __name__ == "__main__":
+    print("begin run command")
     main()
+    print("end run command, enter next step")
+

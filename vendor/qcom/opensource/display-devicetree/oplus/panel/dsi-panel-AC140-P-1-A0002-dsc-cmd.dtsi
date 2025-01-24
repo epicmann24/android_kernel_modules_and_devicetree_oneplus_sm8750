@@ -1114,7 +1114,6 @@
 };
 
 &dsi_panel_AC140_P_1_A0002_dsc_cmd {
-	qcom,panel-supply-entries = <&oplus_petrel_dsi_panel_pwr_supply>;
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
 	qcom,bl-update-flag = "delay_until_first_frame";
 	qcom,mdss-dsi-bl-min-level = <1>;

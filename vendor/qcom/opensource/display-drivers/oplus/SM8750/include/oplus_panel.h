@@ -79,6 +79,8 @@ struct oplus_pwm_turbo_params {
 	ktime_t aod_off_timestamp;
 	struct workqueue_struct *oplus_pwm_dbv_ext_cmd_wq;
 	struct work_struct oplus_pwm_dbv_ext_cmd_work;
+
+	ktime_t into_aod_timestamp;
 };
 
 struct oplus_backlight_config {
@@ -95,6 +97,7 @@ struct oplus_backlight_config {
 	bool oplus_demura2_offset_support;
 	bool need_to_set_demura2_offset;
 	u32 demura2_offset;
+	bool backlight_check_disable;
 };
 
 /*
@@ -136,7 +139,7 @@ struct oplus_drm_panel_esd_config{
 };
 
 struct oplus_panel_cmd_set{
-	bool pack;
+	int sync_count;
 };
 
 struct oplus_display_mode_priv_info{
@@ -169,6 +172,7 @@ struct oplus_panel {
 	/* add for all wait te demand */
 	u32 wait_te_config;
 	bool change_voltage_before_panel_bl_0;
+	bool interval_time_nolp_pre;
 
 	/* ---------------- feature variate ---------------- */
 	bool dp_support;
@@ -200,8 +204,8 @@ struct oplus_panel {
 	/* add for panel id compatibility*/
 	bool panel_init_compatibility_enable;
 	u32 hbm_max_state;
-	bool cmdq_pack_support;
-	bool cmdq_pack_state;
+	bool cmdq_sync_support;
+	int cmdq_sync_count;
 
 	bool need_sync;
 	u32 disable_delay_bl_count;
@@ -230,6 +234,9 @@ struct oplus_panel {
 	unsigned int power_on_sequence[7][2];
 	unsigned int power_off_sequence[7][2];
 	unsigned int panel_reset_position;
+
+	bool gamma_compensation_support;
+	int power_mode_early;
 };
 
 #endif /* _OPLUS_PANEL_H_ */

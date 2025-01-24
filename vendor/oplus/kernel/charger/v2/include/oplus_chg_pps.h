@@ -16,8 +16,8 @@
 #define PPS_STATUS_VOLT(pps_status) (((pps_status) >> 0) & 0xFFFF)
 #define PPS_STATUS_CUR(pps_status) (((pps_status) >> 16) & 0xFF)
 
-#define PD_PDO_VOL(pdo)			(pdo * 50)
-#define PD_PDO_CURR_MAX(pdo)		(pdo * 10)
+#define PD_PDO_VOL(pdo)			((pdo) * 50)
+#define PD_PDO_CURR_MAX(pdo)		((pdo) * 10)
 
 enum pps_topic_item {
 	PPS_ITEM_ONLINE,
@@ -35,8 +35,7 @@ typedef enum
 	USBPD_PDMSG_PDOTYPE_AUGMENTED
 }USBPD_PDMSG_PDOTYPE_TYPE;
 
-typedef union
-{
+typedef union {
 	u32 pdo_data;
 	struct {
 	        u32 max_current_10ma			: 10;    /*bit [ 9: 0]*/

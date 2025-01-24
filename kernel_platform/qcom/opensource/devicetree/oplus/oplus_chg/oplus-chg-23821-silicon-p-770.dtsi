@@ -56,12 +56,6 @@
 		oplus_spec,volt_of_fast_drop_soc_1 = <2700>;
 		oplus_spec,support_uisoc_low_battery_control;
 
-		/* 2s battery */
-		oplus_spec,wired-aging-ffc-version = <AGING_FFC_V1>;
-		oplus_spec,wired-aging-ffc-offset-mv = <15 30
-							10 20>;
-		oplus_spec,wired-aging-ffc-cycle-thr = <500 1000>;
-
 		oplus_spec,wls-ffc-step-max = <2>;
 		oplus_spec,wls-ffc-fv-mv = <4590 4590>;
 		oplus_spec,wls-ffc-fv-cutoff-mv = <4550 4525 4490
@@ -168,6 +162,7 @@
 &oplus_ufcs_charge {
 	silicon_p_770 {
 		oplus,adsp_ufcs_project;
+		oplus,ufcs_need_reset_adapter;
 		oplus,target_vbus_mv = <11000>;
 		oplus,curr_max_ma = <9100>;
 		oplus,subboard_ntc_abnormal_current = <7300>;

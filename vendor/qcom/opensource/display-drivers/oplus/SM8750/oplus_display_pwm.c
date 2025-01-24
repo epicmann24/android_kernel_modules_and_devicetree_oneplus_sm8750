@@ -374,7 +374,7 @@ int oplus_pwm_set_power_on(struct dsi_panel *panel)
 		return -EINVAL;
 	}
 
-	if (!oplus_panel_pwm_support(panel)) {
+	if (oplus_panel_pwm_support(panel)) {
 		panel->oplus_panel.pwm_params.pwm_power_on = true;
 	}
 
@@ -738,7 +738,8 @@ int oplus_panel_pwm_dbv_threshold_handle(struct dsi_panel *panel, u32 backlight_
 	rc = get_state_by_dbv(panel, bl_lvl, &state);
 	panel->oplus_panel.pwm_params.pwm_pulse_state = state;
 
-	if (panel->oplus_panel.pwm_params.pwm_pulse_state_last != panel->oplus_panel.pwm_params.pwm_pulse_state) {
+	if ((panel->oplus_panel.pwm_params.pwm_pulse_state_last != panel->oplus_panel.pwm_params.pwm_pulse_state)
+		&& (bl_lvl != 0)) {
 		panel->oplus_panel.pwm_params.pwm_state_changed = true;
 		OPLUS_PWM_INFO("pwm level state is changed from %d to %d\n",
 			panel->oplus_panel.pwm_params.pwm_pulse_state_last,
@@ -747,7 +748,7 @@ int oplus_panel_pwm_dbv_threshold_handle(struct dsi_panel *panel, u32 backlight_
 	}
 
 	if (panel->oplus_panel.pwm_params.pwm_state_changed == true
-		|| oplus_last_backlight == 0
+		|| (oplus_last_backlight == 0 && bl_lvl!= 0)
 		|| panel->oplus_panel.pwm_params.pwm_power_on) {
 		rc = oplus_panel_pwm_dbv_threshold_switch_tx_cmd(panel);
 	}

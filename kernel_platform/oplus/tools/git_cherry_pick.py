@@ -38,7 +38,7 @@ class GerritHandler:
         return commit_ids
 
     def fetch_json_data(self, commit_id):
-        cmd = 'ssh -p 29418 zuoyonghua@gerrit_url gerrit query --format=JSON --patch-sets change:{}'.format(commit_id)
+        cmd = 'ssh -p 29418 xxx@gerrit_url gerrit query --format=JSON --patch-sets change:{}'.format(commit_id)
         result = self.run_cmd(cmd)
         try:
             json_results = [json.loads(i) for i in result.splitlines()]
@@ -52,7 +52,7 @@ class GerritHandler:
         change_number = json_data['number']
         revision_number = json_data['patchSets'][-1]['number']
         project_name = json_data['project']
-        git_cmd = 'git fetch ssh://zuoyonghua@gerrit_url:29418/{} refs/changes/{}/{}/{} && git cherry-pick FETCH_HEAD'.format(project_name, str(change_number)[-2:], change_number, revision_number)
+        git_cmd = 'git fetch ssh://xxx@gerrit_url:29418/{} refs/changes/{}/{}/{} && git cherry-pick FETCH_HEAD'.format(project_name, str(change_number)[-2:], change_number, revision_number)
         return git_cmd, project_name
 
     def run_git_command(self, git_cmd, project_name):
