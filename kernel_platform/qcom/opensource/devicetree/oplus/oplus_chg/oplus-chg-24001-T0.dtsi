@@ -1,0 +1,24 @@
+//ifdef OPLUS_FEATURE_CHG_BASIC
+&pm8550ve_i_gpios {
+	sy6603_en_gpio_active: sy6603_en_gpio_active {
+		pins = "gpio6";
+		function = "normal";
+		bias-disable;
+		power-source = <1>;
+		output-high;
+		qcom,drive-strength = <3>;
+	};
+	sy6603_en_gpio_sleep: sy6603_en_gpio_sleep {
+		pins = "gpio6";
+		function = "normal";
+		bias-disable;
+		power-source = <1>;
+		output-low;
+		qcom,drive-strength = <3>;
+	};
+};
+&oplus_sy6603_bal {
+	sy6603,en-gpio = <&pm8550ve_i_gpios 6 0x00>;
+	oplus,disbale_bal;
+};
+//#endif OPLUS_FEATURE_CHG_BASIC
