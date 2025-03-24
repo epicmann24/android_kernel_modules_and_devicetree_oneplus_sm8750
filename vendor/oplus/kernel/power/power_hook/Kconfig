@@ -15,3 +15,9 @@ config OPLUS_FEATURE_ALARMTIMER_HOOK
 	default n
 	help
 	  This selects to hook alarmtimer
+
+config OPLUS_FEATURE_NETLINK_HOOK
+	tristate "config to alarmtimer hook"
+	default n
+	help
+	  This selects to hook netlink wakeupsource

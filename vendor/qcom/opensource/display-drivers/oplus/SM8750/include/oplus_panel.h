@@ -237,6 +237,9 @@ struct oplus_panel {
 
 	bool gamma_compensation_support;
 	int power_mode_early;
+	/* indicates how many frames cost from aod off cmd sent to normal frame,
+	"0" means once aod off cmd sent the next frame will be normal frame */
+	unsigned int aod_off_frame_cost;
 };
 
 #endif /* _OPLUS_PANEL_H_ */

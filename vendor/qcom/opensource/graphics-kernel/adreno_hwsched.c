@@ -2034,7 +2034,6 @@ int adreno_hwsched_init(struct adreno_device *adreno_dev,
 
 	sched_set_fifo(adreno_dev->scheduler_worker->task);
 
-	sched_set_sched_prop(adreno_dev->scheduler_worker->task, SCHED_PROP_DEADLINE_LEVEL3);
 	WARN_ON(sysfs_create_files(&device->dev->kobj, _hwsched_attr_list));
 	adreno_set_dispatch_ops(adreno_dev, &hwsched_ops);
 	hwsched->hwsched_ops = target_hwsched_ops;

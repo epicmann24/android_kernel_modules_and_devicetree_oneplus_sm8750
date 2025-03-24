@@ -166,6 +166,7 @@ void oplus_bridge_pre_enable(struct dsi_display *display, struct dsi_display_mod
 
 void oplus_display_enable_pre(struct dsi_display *display)
 {
+	int rc = 0;
 	oplus_display_update_current_display();
 	display->panel->oplus_panel.power_mode_early = SDE_MODE_DPMS_ON;
 	display->panel->power_mode = SDE_MODE_DPMS_ON;
@@ -180,8 +181,21 @@ void oplus_display_enable_pre(struct dsi_display *display)
 					display->oplus_display.panel_sn);
 	}
 
-	if (oplus_display_panel_gamma_compensation(display)) {
-		OPLUS_DSI_ERR("panel gamma compensation failed\n");
+	if (!strcmp(display->panel->name, "AA590 P 3 A0020 dsc cmd mode panel")) {
+		if (oplus_display_panel_A0020_gamma_compensation(display)) {
+			OPLUS_DSI_ERR("oplus_display_panel_A0020_gamma_compensation func failed\n");
+		}
+
+		if (display->panel->oplus_panel.gamma_compensation_support && g_gamma_regs_read_done) {
+			rc = dsi_panel_tx_cmd_set(display->panel, DSI_CMD_GAMMA_COMPENSATION, false);
+			if (rc) {
+				OPLUS_DSI_ERR("send DSI_CMD_GAMMA_COMPENSATION failed\n");
+			}
+		}
+	} else {
+		if (oplus_display_panel_gamma_compensation(display)) {
+			OPLUS_DSI_ERR("panel gamma compensation failed\n");
+		}
 	}
 
 	return;

@@ -96,4 +96,6 @@ int oplus_event_data_notifier_trigger(
 int oplus_panel_backlight_notifier(struct dsi_panel *panel, u32 bl_lvl);
 
 int oplus_display_panel_gamma_compensation(struct dsi_display *display);
+
+int oplus_display_panel_A0020_gamma_compensation(struct dsi_display *display);
 #endif /* _OPLUS_DISPLAY_UTILS_H_ */

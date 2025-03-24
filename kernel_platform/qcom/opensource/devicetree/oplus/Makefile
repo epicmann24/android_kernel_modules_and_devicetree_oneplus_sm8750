@@ -5,6 +5,7 @@ OPLUS_SUN_BOARDS += dodge-23821-sun-overlay.dtbo\
                     dodge-23821-sun-overlay-T0.dtbo\
                     dodge-23893-sun-overlay.dtbo\
                     dodge-23893-sun-overlay-T0.dtbo\
+                    hummer-24811-sun-overlay.dtbo
 
 
 dtb-y += $(OPLUS_SUN_BOARDS) $(SUN_BASE_DTB)

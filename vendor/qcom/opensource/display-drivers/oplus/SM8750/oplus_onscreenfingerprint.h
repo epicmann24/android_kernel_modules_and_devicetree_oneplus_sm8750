@@ -178,6 +178,10 @@ struct oplus_ofp_params {
 													 bit(1):a mirror to the end aod mode is enabled
 													 bit(2):full screen aod mode is enabled
 													*/
+	unsigned int aod_off_frame_cost;				/*
+													 indicates how manty frames cost from aod off cmd sent to normal frame, "0" means once aod off cmd sent
+													 the next frame will be normal frame
+													*/
 	struct workqueue_struct *aod_display_on_set_wq;	/* a workqueue used to send display on(29) cmd after image data write before aod on */
 	struct work_struct aod_display_on_set_work;		/* a work struct used to send display on(29) cmd after image data write before aod on */
 	struct workqueue_struct *aod_off_set_wq;		/* a workqueue used to send aod off cmds to speed up aod unlocking */

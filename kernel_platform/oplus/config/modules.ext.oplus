@@ -22,6 +22,7 @@
 ../vendor/oplus/kernel/ipc
 ../vendor/oplus/kernel/cpu/game_opt
 ../vendor/oplus/kernel/cpu/freqqos_monitor
+../vendor/oplus/kernel/cpu/sched_ext
 ../vendor/oplus/kernel/graphics
 ../vendor/oplus/kernel/framework_stability/oplus_stability_helper
 ../vendor/oplus/kernel/power/power_hook

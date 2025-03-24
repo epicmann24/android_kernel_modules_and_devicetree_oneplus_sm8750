@@ -19,8 +19,6 @@
 #include "include/cam_csiphy_2_3_0_hwreg_dodge_ultrawide.h"
 #include "include/cam_csiphy_2_3_0_hwreg_pista_front.h"
 #include "include/cam_csiphy_2_3_0_hwreg_hummer_main.h"
-#include "include/cam_csiphy_2_3_0_hwreg_piloti_ultrawide.h"
-#include "include/cam_csiphy_2_3_0_hwreg_piloti_main.h"
 #endif
 
 /* Clock divide factor for CPHY spec v1.0 */

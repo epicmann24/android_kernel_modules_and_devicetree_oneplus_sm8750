@@ -2,7 +2,6 @@
 ../vendor/oplus/kernel/boot/oplus_phoenix
 ../vendor/oplus/kernel/network
 ../vendor/oplus/kernel/wifi
-../vendor/oplus/kernel/hans
 ../vendor/oplus/kernel/cpu/thermal
 ../vendor/oplus/kernel/cpu/game_opt
 ../vendor/oplus/secure/common/bsp/drivers/oplus_secure_common
@@ -14,4 +13,3 @@
 ../vendor/oplus/kernel/synchronize
 ../vendor/oplus/kernel/ipc
 ../vendor/oplus/kernel/cpu/midas
-../vendor/oplus/kernel/cpu/freqqos_monitor

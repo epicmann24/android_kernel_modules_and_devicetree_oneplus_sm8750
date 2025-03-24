@@ -21,7 +21,6 @@
 #include "sa_balance.h"
 #endif
 
-
 struct kmem_cache *oplus_task_struct_cachep;
 EXPORT_SYMBOL(oplus_task_struct_cachep);
 
