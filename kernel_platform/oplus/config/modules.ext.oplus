@@ -20,7 +20,6 @@
 ../vendor/oplus/kernel/device_info/magnetic_cover
 ../vendor/oplus/kernel/synchronize
 ../vendor/oplus/kernel/ipc
-../vendor/oplus/kernel/cpu/midas
 ../vendor/oplus/kernel/cpu/game_opt
 ../vendor/oplus/kernel/cpu/freqqos_monitor
 ../vendor/oplus/kernel/cpu/sched_ext

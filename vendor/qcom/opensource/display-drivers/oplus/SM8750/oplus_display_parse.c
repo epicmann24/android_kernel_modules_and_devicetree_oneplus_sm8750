@@ -103,11 +103,11 @@ static int oplus_panel_parse_sequence_config(struct dsi_panel *panel)
 		panel->oplus_panel.oplus_bl_demura_dbv_support ? "true" : "false");
 	panel->oplus_panel.bl_demura_mode = 0;
 
-	panel->oplus_panel.cmdq_pack_support = utils->read_bool(utils->data,
-			"oplus,cmdq-pack-support");
-	OPLUS_DSI_INFO("oplus,cmdq-pack-support: %s\n",
-		panel->oplus_panel.cmdq_pack_support ? "true" : "false");
-	panel->oplus_panel.cmdq_pack_state = false;
+	panel->oplus_panel.cmdq_sync_support = utils->read_bool(utils->data,
+			"oplus,cmdq-sync-support");
+	OPLUS_DSI_INFO("oplus,cmdq-sync-support: %s\n",
+		panel->oplus_panel.cmdq_sync_support ? "true" : "false");
+	panel->oplus_panel.cmdq_sync_count = 0;
 
 	return 0;
 }

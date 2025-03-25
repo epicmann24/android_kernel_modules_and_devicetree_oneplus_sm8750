@@ -187,6 +187,7 @@ extern void cam_tmf8806_driver_exit(void);
 int do_tmf8806_power_down(tmf8806_chip *chip);
 extern int wait_for_tmf8806_ready(void);
 extern int tmf8806_stop(void);
+extern void tmf8806_clean(void);
 int tmf8806_switch_apps(tmf8806_chip *chip, char req_app_id);
 int tmf8806_oem_start(void);
 #endif

@@ -455,6 +455,10 @@ int oplus_display_panel_get_serial_number(void *buf)
 		return ret;
 	}
 
+	if (display->oplus_display.panel_sn == 0) {
+		oplus_display_read_serial_number(display, &display->oplus_display.panel_sn);
+	}
+
 	ret = scnprintf(panel_rnum->serial_number, sizeof(panel_rnum->serial_number),
 			"Get panel serial number: %016lX", display->oplus_display.panel_sn);
 	OPLUS_DSI_INFO("serial_number = [%s]", panel_rnum->serial_number);
@@ -1391,17 +1395,15 @@ int oplus_display_update_clk_ffc(struct dsi_display *display,
 	struct dsi_panel *panel = display->panel;
 	struct oplus_clk_osc clk_osc_pending;
 
-	/* TODO */
-	/* INFO_TRACKPOINT_REPORT("DisplayDriverID@@%d$$Switching ffc mode, clk:[%d -> %d]",
+	INFO_TRACKPOINT_REPORT("DisplayDriverID@@%d$$Switching ffc mode, clk:[%d -> %d]",
 			OPLUS_DISP_Q_INFO_DYN_MIPI,
 			display->cached_clk_rate,
-			display->dyn_bit_clk); */
+			display->dyn_bit_clk);
 
 	if (display->cached_clk_rate == display->dyn_bit_clk) {
-		/* TODO */
-		/* INFO_TRACKPOINT_REPORT("DisplayDriverID@@%d$$Ignore duplicated clk ffc setting, clk=%d",
+		INFO_TRACKPOINT_REPORT("DisplayDriverID@@%d$$Ignore duplicated clk ffc setting, clk=%d",
 				OPLUS_DISP_Q_INFO_DYN_MIPI_INVALID,
-				display->dyn_bit_clk); */
+				display->dyn_bit_clk);
 		return rc;
 	}
 
@@ -1414,11 +1416,10 @@ int oplus_display_update_clk_ffc(struct dsi_display *display,
 	if (!rc) {
 		panel->oplus_panel.ffc_delay_frames = FFC_DELAY_MAX_FRAMES;
 	} else {
-		/* TODO */
-		/* EXCEPTION_TRACKPOINT_REPORT("DisplayDriverID@@%d$$Failed to find ffc mode index, clk=%d, osc=%d",
+		EXCEPTION_TRACKPOINT_REPORT("DisplayDriverID@@%d$$Failed to find ffc mode index, clk=%d, osc=%d",
 				OPLUS_DISP_Q_INFO_DYN_MIPI_INVALID,
 				clk_osc_pending.clk_rate,
-				clk_osc_pending.osc_rate); */
+				clk_osc_pending.osc_rate);
 	}
 
 	mutex_unlock(&panel->oplus_panel.oplus_ffc_lock);
@@ -1433,17 +1434,15 @@ int oplus_display_update_osc_ffc(struct dsi_display *display,
 	struct dsi_panel *panel = display->panel;
 	struct oplus_clk_osc clk_osc_pending;
 
-	/* TODO */
-	/* INFO_TRACKPOINT_REPORT("DisplayDriverID@@%d$$Switching ffc mode, osc:[%d -> %d]",
+	INFO_TRACKPOINT_REPORT("DisplayDriverID@@%d$$Switching ffc mode, osc:[%d -> %d]",
 			OPLUS_DISP_Q_INFO_DYN_OSC,
 			panel->oplus_panel.osc_rate_cur,
-			osc_rate); */
+			osc_rate);
 
 	if (osc_rate == panel->oplus_panel.osc_rate_cur) {
-		/* TODO */
-		/* INFO_TRACKPOINT_REPORT("DisplayDriverID@@%d$$Ignore duplicated osc ffc setting, osc=%d",
+		INFO_TRACKPOINT_REPORT("DisplayDriverID@@%d$$Ignore duplicated osc ffc setting, osc=%d",
 				OPLUS_DISP_Q_INFO_DYN_OSC_INVALID,
-				panel->oplus_panel.osc_rate_cur); */
+				panel->oplus_panel.osc_rate_cur);
 		return rc;
 	}
 
@@ -1453,11 +1452,10 @@ int oplus_display_update_osc_ffc(struct dsi_display *display,
 	clk_osc_pending.osc_rate = osc_rate;
 	rc = oplus_panel_check_ffc_config(panel, &clk_osc_pending);
 	if (rc) {
-		/* TODO */
-		/* EXCEPTION_TRACKPOINT_REPORT("DisplayDriverID@@%d$$Failed to find ffc mode index, clk=%d, osc=%d",
+		EXCEPTION_TRACKPOINT_REPORT("DisplayDriverID@@%d$$Failed to find ffc mode index, clk=%d, osc=%d",
 				OPLUS_DISP_Q_INFO_DYN_OSC_INVALID,
 				clk_osc_pending.clk_rate,
-				clk_osc_pending.osc_rate); */
+				clk_osc_pending.osc_rate);
 	}
 
 	mutex_unlock(&panel->oplus_panel.oplus_ffc_lock);

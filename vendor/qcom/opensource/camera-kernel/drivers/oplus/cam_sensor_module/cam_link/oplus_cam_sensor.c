@@ -9,6 +9,10 @@
 #include "cam_sensor_core.h"
 #include "oplus_cam_sensor.h"
 
+#define OVSENSOR_FRAMEDROP_ADDR 0x15
+#define OVSENSOR_FRAMEDROP_ENABLE 0x10
+#define OVSENSOR_FRAMEDROP_DISABLE 0x00
+
 struct sony_dfct_tbl_t sony_dfct_tbl;
 
 int cam_sensor_read_qsc(struct cam_sensor_ctrl_t *s_ctrl)
@@ -457,6 +461,27 @@ int oplus_sensor_sony_get_dpc_data(struct cam_sensor_ctrl_t *s_ctrl)
 	return rc;
 }
 
+void oplus_sensor_ov_bypass_framedrop(struct cam_sensor_ctrl_t *s_ctrl,enum cam_sensor_packet_opcodes opcode,struct i2c_settings_list *i2c_list)
+{
+	if((opcode == CAM_SENSOR_PACKET_OPCODE_SENSOR_STREAMON) && (s_ctrl->is_need_framedrop == 1))
+	{
+		for (int i = 0; i < i2c_list->i2c_settings.size; i++)
+		{
+			if(i2c_list->i2c_settings.reg_setting[i].reg_addr == OVSENSOR_FRAMEDROP_ADDR)
+			{
+				if(s_ctrl->streamon_num == 1)
+				{
+					CAM_INFO(CAM_SENSOR,"petrelwide need bypass frame drop");
+					i2c_list->i2c_settings.reg_setting[i].reg_data = OVSENSOR_FRAMEDROP_DISABLE;
+				}
+				else
+				{
+					i2c_list->i2c_settings.reg_setting[i].reg_data = OVSENSOR_FRAMEDROP_ENABLE;
+				}
+			}
+		}
+	}
+}
 #ifdef OPLUS_FEATURE_CAMERA_COMMON
 EXPORT_SYMBOL(oplus_sensor_sony_get_dpc_data);
 #endif

@@ -194,6 +194,7 @@ module_entry(
              "oplus/SM8750/oplus_display_dc_diming.c",
              "oplus/SM8750/oplus_display_ffl.c",
              "oplus/SM8750/oplus_display_device.c",
+             "oplus/SM8750/oplus_display_proc.c",
              "oplus/SM8750/oplus_display_power.c",
              "oplus/SM8750/oplus_display_effect.c",
              "oplus/SM8750/oplus_display_device_ioctl.c",

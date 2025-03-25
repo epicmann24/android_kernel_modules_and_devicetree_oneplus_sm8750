@@ -74,6 +74,10 @@ static int game_ed_user_pid = -1;
 static struct task_struct *game_ed_user_task = NULL;
 static DEFINE_RAW_SPINLOCK(game_ed_lock); /* protect game_ed_user_task */
 static struct irq_work game_ed_irq_work;
+static int max_sf_freq_gpu = 0;
+static int max_sf_freq_nongpu = 0;
+static int max_sf_migr_gpu = 0;
+static int max_sf_migr_nongpu = 0;
 
 struct list_head cluster_head;
 #define for_each_sched_cluster(cluster) \
@@ -1565,6 +1569,7 @@ bool fbg_freq_policy_util(unsigned int policy_flags, const struct cpumask *query
 	unsigned int max_grp_id = 0, first_cpu = cpumask_first(query_cpus);
 	unsigned int i;
 	long boosted_margin_util;
+	int sf_freq_gpu = 0, sf_freq_nongpu = 0, sf_migr_gpu = 0, sf_migr_nongpu = 0;
 
 	if (!__frame_boost_enabled())
 		return false;
@@ -1600,6 +1605,11 @@ bool fbg_freq_policy_util(unsigned int policy_flags, const struct cpumask *query
 		}
 		*util = max(*util, boosted_policy_util);
 
+		sf_freq_gpu = max(grp->stune_boost[BOOST_SF_FREQ_GPU], sf_freq_gpu);
+		sf_freq_nongpu = max(grp->stune_boost[BOOST_SF_FREQ_NONGPU], sf_freq_nongpu);
+		sf_migr_gpu = max(grp->stune_boost[BOOST_SF_MIGR_GPU], sf_migr_gpu);
+		sf_migr_nongpu = max(grp->stune_boost[BOOST_SF_MIGR_NONGPU], sf_migr_nongpu);
+
 		if (unlikely(sysctl_frame_boost_debug & DEBUG_SYSTRACE)) {
 			unsigned long curr_util = policy_util ? atomic64_read(&grp->curr_util) : 0;
 			val_systrace_c(grp->id, boosted_policy_util * 10000 + curr_util, "cfs_policy/curr_util", cfs_policy_curr_util);
@@ -1615,13 +1625,18 @@ unlock_fbg:
 	grp = frame_boost_groups[SF_FRAME_GROUP_ID];
 	raw_spin_lock_irqsave(&grp->lock, flags);
 
+	sf_freq_gpu = max(grp->stune_boost[BOOST_SF_FREQ_GPU], sf_freq_gpu);
+	sf_freq_nongpu = max(grp->stune_boost[BOOST_SF_FREQ_NONGPU], sf_freq_nongpu);
+	sf_migr_gpu = max(grp->stune_boost[BOOST_SF_MIGR_GPU], sf_migr_gpu);
+	sf_migr_nongpu = max(grp->stune_boost[BOOST_SF_MIGR_NONGPU], sf_migr_nongpu);
+
 	policy_util = 0;
 	boosted_policy_util = 0;
 	if (valid_freq_querys(query_cpus, grp)) {
 		policy_util = atomic64_read(&grp->policy_util);
 		boosted_policy_util = policy_util +
 			schedtune_grp_margin(policy_util, grp->stune_boost[BOOST_SF_IN_GPU] ?
-				grp->stune_boost[BOOST_SF_FREQ_GPU] : grp->stune_boost[BOOST_SF_FREQ_NONGPU]);
+				sf_freq_gpu : sf_freq_nongpu);
 	}
 
 	raw_spin_unlock_irqrestore(&grp->lock, flags);
@@ -1632,13 +1647,17 @@ unlock_fbg:
 		unsigned long curr_util = policy_util ? atomic64_read(&grp->curr_util) : 0;
 		val_systrace_c(grp->id, boosted_policy_util * 10000 + curr_util, "rt_policy/curr_util", rt_policy_curr_util);
 		if (grp->stune_boost[BOOST_SF_IN_GPU])
-			boost_sf = grp->stune_boost[BOOST_SF_FREQ_GPU] * 1000 + grp->stune_boost[BOOST_SF_MIGR_GPU];
+			boost_sf = sf_freq_gpu * 1000 + sf_migr_gpu;
 		else
-			boost_sf = grp->stune_boost[BOOST_SF_FREQ_NONGPU] * 1000 + grp->stune_boost[BOOST_SF_MIGR_NONGPU];
+			boost_sf = sf_freq_nongpu * 1000 + sf_migr_nongpu;
 		val_systrace_c(grp->id, boost_sf, "rt_boost_freq/migr", rt_boost_freq_migr);
 		if (boosted_policy_util == *util)
 			max_grp_id = grp->id;
 	}
+	max_sf_freq_gpu = sf_freq_gpu;
+	max_sf_freq_nongpu = sf_freq_nongpu;
+	max_sf_migr_gpu = sf_migr_gpu;
+	max_sf_migr_nongpu = sf_migr_nongpu;
 
 	grp = frame_boost_groups[INPUTMETHOD_FRAME_GROUP_ID];
 	raw_spin_lock_irqsave(&grp->lock, flags);
@@ -1735,6 +1754,7 @@ bool default_group_update_cpufreq(int grp_id)
 unlock:
 	raw_spin_unlock_irqrestore(&grp->lock, flags);
 
+	rcu_read_lock();
 	if (need_update_prev_freq) {
 		rq = cpu_rq(prev_cpu);
 		if (fbg_hook.update_freq)
@@ -1750,6 +1770,7 @@ unlock:
 		else
 			cpufreq_update_util_wrap(rq, SCHED_CPUFREQ_DEF_FRAMEBOOST);
 	}
+	rcu_read_unlock();
 
 	return ret;
 }
@@ -2378,6 +2399,7 @@ bool set_frame_group_task_to_perfer_cpu(struct task_struct *p, int *target_cpu)
 	int iter_cpu = 0;
 	int orig_cls_id = 0;
 	int start_cls = -1;
+	struct oplus_sched_cluster *temp_cls;
 	struct rq *orig_rq = NULL;
 	struct oplus_rq *orig_orq = NULL;
 	bool walk_next_cls = false;
@@ -2418,6 +2440,13 @@ bool set_frame_group_task_to_perfer_cpu(struct task_struct *p, int *target_cpu)
 		if (grp->preferred_cluster == NULL)
 			return false;
 
+		/* preferred_cluster has concurrency issues with clear_all_frame_task() */
+		temp_cls = grp->preferred_cluster;
+		if (!temp_cls)
+			return false;
+		start_cls = temp_cls->id;
+
+
 		orig_rq = cpu_rq(*target_cpu);
 		orig_orq = (struct oplus_rq *)orig_rq->android_oem_data1;
 		orig_cls_id = topology_cluster_id(*target_cpu);
@@ -2426,7 +2455,6 @@ bool set_frame_group_task_to_perfer_cpu(struct task_struct *p, int *target_cpu)
 		 * The frame boost selection is referenced to the walt core selection,
 		 * as it is not possible to override the boost, eg sched boost and task boost
 		 */
-		start_cls = grp->preferred_cluster->id;
 		if (orig_cls_id > start_cls) {
 			struct oplus_task_struct *ots_curr = get_oplus_task_struct(orig_rq->curr);
 
@@ -2665,7 +2693,7 @@ bool fbg_rt_task_fits_capacity(struct task_struct *tsk, int cpu)
 
 	raw_util = atomic64_read(&grp->policy_util);
 	grp_util = raw_util + schedtune_grp_margin(raw_util, grp->stune_boost[BOOST_SF_IN_GPU] ?
-			grp->stune_boost[BOOST_SF_MIGR_GPU] : grp->stune_boost[BOOST_SF_MIGR_NONGPU]);
+			max_sf_migr_gpu : max_sf_migr_nongpu);
 
 #if IS_ENABLED(CONFIG_OPLUS_FEATURE_VT_CAP)
 	fits = real_cpu_cap[cpu] >= grp_util;

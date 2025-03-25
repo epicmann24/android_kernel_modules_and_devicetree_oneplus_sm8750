@@ -1083,15 +1083,6 @@ int dsi_display_check_status(struct drm_connector *connector, void *display,
 	if (atomic_read(&panel->esd_recovery_pending))
 		goto release_panel_lock;
 
-#ifdef OPLUS_FEATURE_DISPLAY
-	if (oplus_display_ops.display_check_status_pre) {
-		if (oplus_display_ops.display_check_status_pre(panel)) {
-			DSI_WARN("Skip the check because esd is pending\n");
-			goto release_panel_lock;
-		}
-	}
-#endif /* OPLUS_FEATURE_DISPLAY */
-
 	status_mode = panel->esd_config.status_mode;
 
 	if ((status_mode == ESD_MODE_SW_SIM_SUCCESS) || is_sim_panel(display))
@@ -6396,6 +6387,10 @@ int dsi_display_dev_remove(struct platform_device *pdev)
 	}
 
 	display = platform_get_drvdata(pdev);
+	if (!display || !display->panel_node) {
+		DSI_ERR("invalid display\n");
+		return -EINVAL;
+	}
 
 	/* decrement ref count */
 	of_node_put(display->panel_node);

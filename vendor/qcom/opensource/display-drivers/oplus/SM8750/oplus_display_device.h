@@ -32,6 +32,7 @@
 #define OPLUS_PANEL_CLASS_NAME "oplus_display_class"
 
 #define OPLUS_PANEL_IOCTL_BASE			'o'
+#define OPLUS_PANEL_DEVICE_REF_MAX 3
 
 #define PANEL_IO(nr)			_IO(OPLUS_PANEL_IOCTL_BASE, nr)
 #define PANEL_IOR(nr, type)		_IOR(OPLUS_PANEL_IOCTL_BASE, nr, type)

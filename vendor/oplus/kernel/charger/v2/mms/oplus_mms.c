@@ -90,6 +90,46 @@ int oplus_mms_get_update_mode(struct oplus_mms *mms)
 	return val;
 }
 
+int oplus_mms_set_item_enable(struct oplus_mms *mms, u32 item_id)
+{
+	struct mms_item *item;
+
+	if (mms == NULL || mms->desc == NULL ||
+	    !mms->desc->item_table) {
+		chg_err("mms or item_table is NULL");
+		return -ENODEV;
+	}
+	item = oplus_mms_get_item(mms, item_id);
+	if (item == NULL) {
+		chg_err("topic(=%s) item(=%d) not found\n", mms->desc->name,
+			item_id);
+		return -EINVAL;
+	}
+	item->disabled = false;
+
+	return 0;
+}
+
+int oplus_mms_set_item_disable(struct oplus_mms *mms, u32 item_id)
+{
+	struct mms_item *item;
+
+	if (mms == NULL || mms->desc == NULL ||
+	    !mms->desc->item_table) {
+		chg_err("mms or item_table is NULL");
+		return -ENODEV;
+	}
+	item = oplus_mms_get_item(mms, item_id);
+	if (item == NULL) {
+		chg_err("topic(=%s) item(=%d) not found\n", mms->desc->name,
+			item_id);
+		return -EINVAL;
+	}
+	item->disabled = true;
+
+	return 0;
+}
+
 int oplus_mms_get_item_data(struct oplus_mms *mms, u32 item_id,
 			    union mms_msg_data *data, bool update)
 {
@@ -110,6 +150,12 @@ int oplus_mms_get_item_data(struct oplus_mms *mms, u32 item_id,
 		chg_err("topic(=%s) item(=%d) not found\n", mms->desc->name,
 			item_id);
 		return -EINVAL;
+	}
+
+	if (item->disabled) {
+		chg_info("topic(=%s) item(=%d) is disabled\n",
+			 mms->desc->name, item_id);
+		return -ENOTSUPP;
 	}
 
 	if (update || mms->force_update)
@@ -1055,6 +1101,7 @@ __oplus_mms_register(struct device *parent, const struct oplus_mms_desc *desc,
 	mutex_init(&mms->sync_msg_lock);
 	spin_lock_init(&mms->changed_lock);
 	for (i = 0; i < desc->item_num; i++) {
+		desc->item_table[i].disabled = false;
 		rwlock_init(&desc->item_table[i].lock);
 		mutex_init(&desc->item_table[i].update_lock);
 	}

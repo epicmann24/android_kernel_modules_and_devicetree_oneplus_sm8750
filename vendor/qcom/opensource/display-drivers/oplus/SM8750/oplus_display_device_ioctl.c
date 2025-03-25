@@ -15,6 +15,7 @@
 #include "oplus_display_sysfs_attrs.h"
 #include "oplus_display_interface.h"
 #include "oplus_display_ext.h"
+#include "oplus_display_bl.h"
 #include "sde_trace.h"
 #include "sde_dbg.h"
 #include "oplus_debug.h"
@@ -77,7 +78,7 @@ int oplus_display_panel_get_id(void *buf)
 		ret = -1;
 		return ret;
 	}
-	/* if (__oplus_get_power_status() == OPLUS_DISPLAY_POWER_ON) { */
+
 	if (display->panel->power_mode == SDE_MODE_DPMS_ON) {
 		if (display->panel->oplus_panel.panel_id_switch_page) {
 			mutex_lock(&display->display_lock);
@@ -342,7 +343,6 @@ int oplus_display_panel_get_ccd_check(void *buf)
 		return -EINVAL;
 	}
 
-	/* if (__oplus_get_power_status() != OPLUS_DISPLAY_POWER_ON) { */
 	if (display->panel->power_mode != SDE_MODE_DPMS_ON) {
 		OPLUS_DSI_WARN("display panel in off status\n");
 		return -EFAULT;
@@ -469,6 +469,8 @@ extern unsigned int oplus_display_log_type;
 int oplus_display_panel_set_qcom_loglevel(void *data)
 {
 	struct kernel_loglevel *k_loginfo = data;
+	struct dsi_display *display = oplus_display_get_current_display();
+
 	if (k_loginfo == NULL) {
 		OPLUS_DSI_ERR("k_loginfo is null pointer\n");
 		return -EINVAL;
@@ -483,6 +485,11 @@ int oplus_display_panel_set_qcom_loglevel(void *data)
 			sde_dump_evtlog_and_reg();
 		}
 #endif
+		mutex_lock(&display->display_lock);
+		mutex_lock(&display->panel->panel_lock);
+		oplus_panel_backlight_check(display->panel);
+		mutex_unlock(&display->panel->panel_lock);
+		mutex_unlock(&display->display_lock);
 	} else {
 		oplus_display_log_type &= ~OPLUS_DEBUG_LOG_DSI;
 		oplus_display_trace_enable &= ~OPLUS_DISPLAY_TRACE_ALL;
@@ -659,7 +666,6 @@ int oplus_display_panel_get_id2(void)
 		return 0;
 	}
 
-	/* if(__oplus_get_power_status() == OPLUS_DISPLAY_POWER_ON) { */
 	if (display->panel->power_mode == SDE_MODE_DPMS_ON) {
 		if (!strcmp(display->panel->name, "AA545 P 1 A0006 dsc cmd mode panel")) {
 			mutex_lock(&display->display_lock);
@@ -692,7 +698,6 @@ int oplus_display_panel_hbm_lightspot_check(void)
 		return -EINVAL;
 	}
 
-	/* if (__oplus_get_power_status() != OPLUS_DISPLAY_POWER_ON) { */
 	if (display->panel->power_mode != SDE_MODE_DPMS_ON) {
 		OPLUS_DSI_WARN("display panel in off status\n");
 		return -EFAULT;
@@ -819,7 +824,6 @@ int oplus_display_panel_get_dsc(void *data) {
 		return -EINVAL;
 	}
 
-	/* if (__oplus_get_power_status() == OPLUS_DISPLAY_POWER_ON) { */
 	if (display->panel->power_mode == SDE_MODE_DPMS_ON) {
 		mutex_lock(&display->display_lock);
 		ret = dsi_display_read_panel_reg(get_main_display(), 0x03, read, 1);
@@ -927,7 +931,6 @@ int oplus_display_panel_set_reg(void *data)
 			reg[index + 1] = payload[index];
 		}
 
-		/* if(__oplus_get_power_status() == OPLUS_DISPLAY_POWER_ON) { */
 		if (display->panel->power_mode != SDE_MODE_DPMS_OFF) {
 				/* enable the clk vote for CMD mode panels */
 			mutex_lock(&display->display_lock);
@@ -998,7 +1001,7 @@ int oplus_display_panel_set_spr(void *data)
 	OPLUS_DSI_INFO("oplus_display_set_spr = %d\n", temp_save);
 
 	__oplus_display_set_spr(temp_save);
-	/* if(__oplus_get_power_status() == OPLUS_DISPLAY_POWER_ON) { */
+
 	if (display->panel->power_mode == SDE_MODE_DPMS_ON) {
 		if(get_main_display() == NULL) {
 			OPLUS_DSI_ERR("display is null\n");
@@ -1278,7 +1281,7 @@ int oplus_display_panel_set_dre_status(void *buf)
 		return -EINVAL;
 	}
 
-	if(__oplus_get_power_status() == OPLUS_DISPLAY_POWER_ON) {
+	if(panel->power_mode == SDE_MODE_DPMS_ON) {
 		if (*dre_status == OPLUS_DISPLAY_DRE_ON) {
 			/* if(mtk)  */
 			/*	disp_aal_set_dre_en(0);   MTK AAL api */

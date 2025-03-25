@@ -150,7 +150,7 @@ void oplus_panel_switch_vid_mode(struct dsi_display *display, struct dsi_display
 	}
 
 	panel = display->panel;
-	if (panel->power_mode != SDE_MODE_DPMS_ON) {
+	if (panel->power_mode == SDE_MODE_DPMS_OFF) {
 		OPLUS_DSI_INFO("display panel in off status\n");
 		return;
 	}

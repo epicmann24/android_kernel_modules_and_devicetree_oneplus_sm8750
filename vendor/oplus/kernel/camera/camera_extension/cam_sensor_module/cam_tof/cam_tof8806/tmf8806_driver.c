@@ -234,8 +234,10 @@ static ssize_t chip_enable_store(struct kobject *kobj, struct kobj_attribute * a
 				CAM_EXT_ERR(CAM_EXT_TOF, "Stop Measurement fail");
 			}
 		}
-		enablePinLow(chip);
+		// enablePinLow(chip);
+		tmf8806_stop();
 	}else {
+		g_tof8806_sensor_chip->tof_core.measureConfig.data.command = 0;
 		if(g_is_alread_runing) {
 			AMS_MUTEX_UNLOCK(&chip->lock);
 			return 0;
@@ -578,7 +580,7 @@ ssize_t tmf8806_app0_cmd_store(struct kobject *kobj, struct kobj_attribute *attr
 {
 	tmf8806_chip *chip = g_tof8806_sensor_chip;
 	ssize_t ret = count;
-	int8_t error;
+	int8_t error = APP_SUCCESS_OK;
 	char bytes[TOF8806_APP0_CMD_IDX];
 	uint32_t tmpIterations = 0;  //Temporary variable to store iterations from userspace
 	CAM_EXT_INFO(CAM_EXT_TOF, "%s cmd: %s buf: %s \n", __func__, attr->attr.name, buf);
@@ -588,15 +590,27 @@ ssize_t tmf8806_app0_cmd_store(struct kobject *kobj, struct kobj_attribute *attr
 	if (!strncmp(attr->attr.name,"capture", strlen(attr->attr.name)))
 	{
 		//only for capture attr start and stop measurement
-		ret = sscanf(buf, "%hhx", &chip->tof_core.measureConfig.data.command);
+		uint8_t capture_status = 0;
+		ret = sscanf(buf, "%hhx", &capture_status);
+
+		//ret = sscanf(buf, "%hhx", &chip->tof_core.measureConfig.data.command);
+		CAM_EXT_INFO(CAM_EXT_TOF, "sscanf ret %d capture_status:%d", ret, capture_status);
 		if (ret == 1) {
-			if (chip->tof_core.measureConfig.data.command > 0) {
-				chip->xtalk_peak = 0;
-				chip->xtalk_count = 0;
-				error = tmf8806StartMeasurement(&chip->tof_core);
-			}
-			else {
+			if (capture_status) {
+				if (chip->tof_core.measureConfig.data.command == 0) {
+					chip->xtalk_peak = 0;
+					chip->xtalk_count = 0;
+					chip->tof_core.measureConfig.data.command = capture_status;
+					error = tmf8806StartMeasurement(&chip->tof_core);
+					CAM_EXT_INFO(CAM_EXT_TOF, "tmf8806StartMeasurement result %d", error);
+				} else {
+					error = APP_SUCCESS_OK;
+					CAM_EXT_INFO(CAM_EXT_TOF, "tmf8806StartMeasurement return ok directly");
+				}
+			} else {
+				chip->tof_core.measureConfig.data.command = 0;
 				error = tmf8806StopMeasurement(&chip->tof_core);
+				CAM_EXT_INFO(CAM_EXT_TOF, "tmf8806StopMeasurement result %d", error);
 			}
 			if (error != APP_SUCCESS_OK) {
 				AMS_MUTEX_UNLOCK(&chip->data_lock);
@@ -705,12 +719,39 @@ static ssize_t app0_fac_calib_show(struct kobject *kobj, struct kobj_attribute *
 	tmf8806_chip *chip = g_tof8806_sensor_chip;
 	ssize_t ret = -1;
 	char byte[TOF8806_FACTORY_CAL_CMD_SIZE];
+	uint32_t timeout = 500;
+	uint8_t irqs = 0;
 
 	if (chip->tof_core.logLevel & TMF8806_LOG_LEVEL_VERBOSE) {
 		CAM_EXT_INFO(CAM_EXT_TOF, "%s\n", __func__);
 	}
 
 	AMS_MUTEX_LOCK(&chip->lock);
+	ret = tmf8806FactoryCalibration(&chip->tof_core, TMF8806_FACTORY_CALIB_KITERS);
+
+	if (ret == APP_SUCCESS_OK) {
+		delayInMicroseconds(1000000); // needs more then 1 sec.
+		while ( irqs == 0 && timeout-- > 0 )
+		{
+			delayInMicroseconds(10000);
+			irqs = tmf8806GetAndClrInterrupts( &chip->tof_core, TMF8806_INTERRUPT_RESULT );
+		}
+
+		ret = tmf8806ReadFactoryCalibration(&chip->tof_core);
+		if (ret != APP_SUCCESS_OK) {
+			CAM_EXT_ERR(CAM_EXT_TOF, "No factory calibration page \n");
+		}
+		if (timeout == 0) {
+			ret = -1;
+			CAM_EXT_ERR(CAM_EXT_TOF, " calibration timeout \n");
+
+		}
+	}
+
+	if(ret != APP_SUCCESS_OK){
+		return ret;
+	}
+
 	memcpy(byte, &chip->tof_core.factoryCalib, TOF8806_FACTORY_CAL_CMD_SIZE);
 	ret = scnprintf(buf, PAGE_SIZE, "%#hhx %#hhx %#hhx %#hhx %#hhx %#hhx %#hhx %#hhx %#hhx %#hhx %#hhx %#hhx %#hhx %#hhx\n",
 					byte[0], byte[1], byte[2], byte[3], byte[4], byte[5], byte[6],
@@ -740,7 +781,7 @@ static ssize_t distance_thresholds_show(struct kobject *kobj, struct kobj_attrib
 
 	return ret;
 }
-*/
+
 static ssize_t app0_fac_calib_store(struct kobject *kobj, struct kobj_attribute * attr, const char * buf, size_t count)
 {
 	tmf8806_chip *chip = g_tof8806_sensor_chip;
@@ -763,7 +804,7 @@ static ssize_t app0_fac_calib_store(struct kobject *kobj, struct kobj_attribute 
 
 	return (ret != TOF8806_FACTORY_CAL_CMD_SIZE) ? -EINVAL : count;
 }
-/*
+
 static ssize_t app0_state_data_store(struct kobject *kobj, struct kobj_attribute * attr, const char * buf, size_t count)
 {
 	tmf8806_chip *chip = g_tof8806_sensor_chip;
@@ -812,35 +853,23 @@ static ssize_t app0_apply_fac_calib_store(struct kobject *kobj, struct kobj_attr
  {
 	tmf8806_chip *chip = g_tof8806_sensor_chip;
 	int8_t ret;
-	uint32_t timeout = 500;
-	uint8_t irqs = 0;
+	char byte[TOF8806_FACTORY_CAL_CMD_SIZE] = {0};
+
 	if (chip->tof_core.logLevel & TMF8806_LOG_LEVEL_VERBOSE) {
 		CAM_EXT_INFO(CAM_EXT_TOF, "%s\n", __func__);
 	}
 
 	AMS_MUTEX_LOCK(&chip->lock);
-	ret = tmf8806FactoryCalibration(&chip->tof_core, TMF8806_FACTORY_CALIB_KITERS);
+	ret = sscanf(buf, "%hhx %hhx %hhx %hhx %hhx %hhx %hhx %hhx %hhx %hhx %hhx %hhx %hhx %hhx",
+		  &byte[0], &byte[1], &byte[2], &byte[3], &byte[4], &byte[5], &byte[6],
+		  &byte[7], &byte[8], &byte[9], &byte[10], &byte[11], &byte[12], &byte[13]);
 
-	if (ret == APP_SUCCESS_OK) {
-		delayInMicroseconds(1000000); // needs more then 1 sec.
-		while ( irqs == 0 && timeout-- > 0 )
-		{
-			delayInMicroseconds(10000);
-			irqs = tmf8806GetAndClrInterrupts( &chip->tof_core, TMF8806_INTERRUPT_RESULT );
-		}
-
-		ret = tmf8806ReadFactoryCalibration(&chip->tof_core);
-		if (ret != APP_SUCCESS_OK) {
-			CAM_EXT_INFO(CAM_EXT_TOF, "No factory calibration page \n");
-		}
-		if (timeout == 0) {
-			ret = -1;
-		}
+	if (ret == TOF8806_FACTORY_CAL_CMD_SIZE) {
+		tmf8806SetFactoryCalibration(&chip->tof_core, (tmf8806FactoryCalibData *) byte);
 	}
-
 	AMS_MUTEX_UNLOCK(&chip->lock);
 
-	return (ret != BL_SUCCESS_OK) ? -EIO  : count;
+	return (ret != TOF8806_FACTORY_CAL_CMD_SIZE) ? -EINVAL : count;
 }
 /*
 static ssize_t app0_clk_correction_store(struct kobject *kobj, struct kobj_attribute * attr, const char * buf, size_t count)
@@ -1048,7 +1077,7 @@ static OPLUS_ATTR(app0_ctrl_reg,0644, app0_ctrl_reg_show,NULL);
 //static OPLUS_ATTR(app0_temp,0644, app0_temp_show,NULL);
 //static OPLUS_ATTR(app0_diag_state_mask,0644, app0_diag_state_mask_show,NULL);
 //static OPLUS_ATTR(app0_reflectivity_count,0644, app0_reflectivity_count_show,NULL);
-static OPLUS_ATTR(app0_get_fac_calib,0644, app0_fac_calib_show,app0_fac_calib_store);
+static OPLUS_ATTR(app0_get_fac_calib,0644, app0_fac_calib_show,NULL);
 //static OPLUS_ATTR(app0_get_distance,0644, app0_get_distance_show,NULL);
 static OPLUS_ATTR(app0_read_peak_crosstalk,0644, app0_read_peak_crosstalk_show,NULL);
 
@@ -1286,6 +1315,30 @@ int tmf8806_stop(void)
 	return 0;
 }
 EXPORT_SYMBOL(tmf8806_stop);
+
+void tmf8806_clean(void)
+{
+	tmf8806_chip *chip = g_tof8806_sensor_chip;
+
+	if (NULL != chip && is_8806_alread_probe) {
+
+		if (chip->tof_core.measureConfig.data.command != 0) {
+			chip->tof_core.measureConfig.data.command = 0;
+			tmf8806StopMeasurement(&chip->tof_core);
+		}
+
+		if (chip->poll_period && irq_thread_status) {
+			(void)kthread_stop(chip->app0_poll_irq);
+			irq_thread_status = 0;
+		}
+
+		g_is_alread_runing = 0;
+
+		do_tmf8806_power_down(chip);
+	}
+}
+EXPORT_SYMBOL(tmf8806_clean);
+
 static int tmf8806_input_dev_open(struct input_dev *dev)
 {
 	tmf8806_chip *chip = input_get_drvdata(dev);
@@ -1487,7 +1540,6 @@ int tmf8806_oem_start(void)
 	}
 	AMS_MUTEX_OEM_UNLOCK(&g_tof8806_sensor_chip->power_lock);
 
-
 	enablePinHigh(g_tof8806_sensor_chip) ;
 	delayInMicroseconds(ENABLE_TIME_MS * 1000);
 	tmf8806Wakeup(&g_tof8806_sensor_chip->tof_core);
@@ -1562,7 +1614,7 @@ static int tmf8806_probe(struct i2c_client *client)
 	chip->tof_output_frame.frame.frameNumber = 0;
 	chip->tof_output_frame.frame.payload_lsb = 0;
 	chip->tof_output_frame.frame.payload_msb = 0;
-
+	chip->tof_core.measureConfig.data.command = 0;
 	/* Setup IRQ Handling */
 	poll_prop_ptr = (void *)of_get_property(g_tof8806_sensor_chip->client->dev.of_node, TOF_PROP_NAME_POLLIO, NULL);
 	g_tof8806_sensor_chip->poll_period = poll_prop_ptr ? be32_to_cpup(poll_prop_ptr) : 0;

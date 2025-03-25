@@ -363,5 +363,6 @@ int oplus_panel_mult_frac(int bright);
 bool is_spread_backlight(struct dsi_display *display, int level);
 int oplus_backlight_wait_vsync(struct drm_encoder *drm_enc);
 void update_pending_backlight(struct dsi_display *display, int level);
+int oplus_panel_backlight_check(struct dsi_panel *panel);
 
 #endif /* _OPLUS_DISPLAY_BL_H_ */

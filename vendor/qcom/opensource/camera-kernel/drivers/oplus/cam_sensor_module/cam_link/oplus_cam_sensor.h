@@ -36,4 +36,5 @@ int oplus_cam_sensor_apply_settings(struct cam_sensor_ctrl_t *s_ctrl);
 
 int oplus_sensor_sony_get_dpc_data(struct cam_sensor_ctrl_t *s_ctrl);
 
+void oplus_sensor_ov_bypass_framedrop(struct cam_sensor_ctrl_t *s_ctrl,enum cam_sensor_packet_opcodes opcode,struct i2c_settings_list *i2c_list);
 #endif /* _OPLUS_CAM_SENSOR_H_ */

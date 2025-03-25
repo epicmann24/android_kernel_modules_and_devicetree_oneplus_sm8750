@@ -130,12 +130,10 @@ bool oplus_panel_validate_reg_read(struct dsi_panel *panel)
 	if (group_matched)
 		return true;
 
-	cnt += scnprintf(payload + cnt, sizeof(payload) - cnt, "DisplayDriverID@@%d$$", OPLUS_DISP_Q_ERROR_ESD_CHECK_FAIL);
-	cnt += scnprintf(payload + cnt, sizeof(payload) - cnt, "ESD:");
+	cnt += scnprintf(payload + cnt, sizeof(payload) - cnt, "DisplayDriverID@@%d$$ESD:", OPLUS_DISP_Q_ERROR_ESD_CHECK_FAIL);
 	for (i = 0; i < len; ++i)
 		cnt += scnprintf(payload + cnt, sizeof(payload) - cnt, " [0x%02X]", config->return_buf[i]);
-	/* TODO */
-	/* EXCEPTION_TRACKPOINT_REPORT("ESD check failed:%s\n", payload); */
+	EXCEPTION_TRACKPOINT_REPORT("%s, ESD check failed\n", payload);
 
 	return false;
 }

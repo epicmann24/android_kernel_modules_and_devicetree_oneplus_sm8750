@@ -2918,6 +2918,30 @@ int	tof8801_stop(void)
 }
 EXPORT_SYMBOL(tof8801_stop);
 
+void tof8801_clean(void)
+{
+	struct tof_sensor_chip *chip = g_tof_sensor_chip;
+
+	if (NULL != chip && is_8801_alread_probe) {
+
+		if (chip->app0_app.cap_settings.cmd != 0) {
+			chip->app0_app.cap_settings.cmd = 0;
+			tof8801_app0_capture(chip, 0);
+		}
+
+		if (chip->poll_period != 0 && chip->irq_thread_status == TOF_IRQ_THREAD_START) {
+			(void)kthread_stop(chip->app0_poll_irq);
+			chip->irq_thread_status = TOF_IRQ_THREAD_STOP;
+		}
+
+		g_is_alread_runing = 0;
+
+		do_tof_power_down();
+	}
+
+}
+EXPORT_SYMBOL(tof8801_clean);
+
 int wait_for_tof8801_ready(void)
 {
 

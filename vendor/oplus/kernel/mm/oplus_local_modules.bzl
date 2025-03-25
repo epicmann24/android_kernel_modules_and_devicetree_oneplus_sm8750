@@ -75,6 +75,9 @@ def define_oplus_local_modules():
             "//vendor/oplus/kernel/mm:oplus_bsp_hybridswap_zram",
         ],
         local_defines = ["CONFIG_DYNAMIC_TUNING_SWAPPINESS", "CONFIG_OPLUS_BALANCE_ANON_FILE_RECLAIM", "CONFIG_HYBRIDSWAP_SWAPD"],
+        conditional_defines = {
+             "mtk":  ["CONFIG_OPLUS_EXTRA_FREE_KBYTES"],
+        },
         copts = select({
             "//build/kernel/kleaf:kocov_is_true": ["-fprofile-arcs", "-ftest-coverage"],
             "//conditions:default": [],
@@ -146,10 +149,10 @@ def define_oplus_local_modules():
             "kswapd_opt/kswapd_opt.c",
         ]),
         includes = ["."],
-        local_defines = ["CONFIG_OPLUS_FEATURE_KSWAPD_OPT"],
-        conditional_defines = {
-            "mtk": ["CONFIG_COSTLY_ALLOC_MASK_RECLAIM"],
-        },
+        local_defines = ["CONFIG_OPLUS_FEATURE_KSWAPD_OPT", "CONFIG_COSTLY_ALLOC_MASK_RECLAIM"],
+        #conditional_defines = {
+        #    "mtk": ["CONFIG_COSTLY_ALLOC_MASK_RECLAIM"],
+        #},
         copts = select({
             "//build/kernel/kleaf:kocov_is_true": ["-fprofile-arcs", "-ftest-coverage"],
             "//conditions:default": [],
@@ -163,15 +166,6 @@ def define_oplus_local_modules():
             "memleak_detect/slub_track.c",
             "memleak_detect/vmalloc_track.c",
             "memleak_detect/memleak_debug_stackdepot.c"
-        ]),
-        includes = ["."],
-        )
-
-    define_oplus_ddk_module(
-        name = "oplus_bsp_look_around",
-        srcs = native.glob([
-            "**/*.h",
-            "memload_opt/look_around/look_around.c",
         ]),
         includes = ["."],
         )
@@ -191,7 +185,7 @@ def define_oplus_local_modules():
             "oplus_bsp_dynamic_readahead",
             "oplus_bsp_pcppages_opt",
             "oplus_bsp_kswapd_opt",
-            "oplus_bsp_look_around",
+#            "oplus_bsp_look_around",
             "oplus_bsp_memleak_detect",
         ],
     )

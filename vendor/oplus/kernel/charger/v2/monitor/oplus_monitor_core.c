@@ -200,6 +200,7 @@ static void oplus_monitor_update_charge_info(struct oplus_monitor *chip)
 			chip->wls_vout_mv = data.intval;
 			oplus_mms_get_item_data(chip->wls_topic, WLS_ITEM_WLS_TYPE, &data, true);
 			chip->wls_charge_type = data.intval;
+			chip->wls_pre_type = chip->wls_charge_type;
 			oplus_mms_get_item_data(chip->wls_topic, WLS_ITEM_MAGCVR, &data, true);
 			chip->wls_magcvr_status = data.intval;
 		}
@@ -704,11 +705,6 @@ static void oplus_monitor_plc_subs_callback(struct mms_subscribe *subs,
 	switch (type) {
 	case MSG_TYPE_ITEM:
 		switch (id) {
-		case PLC_ITEM_SUPPORT:
-			oplus_mms_get_item_data(chip->plc_topic, id, &data,
-						false);
-			chip->plc_support = !!data.intval;
-			break;
 		case PLC_ITEM_STATUS:
 			oplus_mms_get_item_data(chip->plc_topic, id, &data,
 						false);
@@ -749,10 +745,8 @@ static void oplus_monitor_subscribe_plc_topic(struct oplus_mms *topic,
 			PTR_ERR(chip->plc_subs));
 		return;
 	}
+	chip->plc_support = true;
 
-	rc = oplus_mms_get_item_data(chip->plc_topic, PLC_ITEM_SUPPORT, &data, true);
-	if (rc >= 0)
-		chip->plc_support = data.intval;
 	rc = oplus_mms_get_item_data(chip->plc_topic, PLC_ITEM_STATUS, &data, true);
 	if (rc >= 0)
 		chip->plc_status = data.intval;

@@ -1675,6 +1675,7 @@ enum qdf_suspend_type {
  * @QDF_DIRECT_LINK_ADSP_NMI_CRASH: ADSP NMI crash in the context of direct link
  * @QDF_ENABLE_IRQ_FAILURE: Failed to enable IRQs
  * @QDF_VDEV_LINK_MISMATCH: Vdev link info mismatch
+ * @QDF_DP_PEER_ID_DUPLICATE_USE: DP peer ID duplicate used
  */
 enum qdf_hang_reason {
 	QDF_REASON_UNSPECIFIED,
@@ -1722,6 +1723,7 @@ enum qdf_hang_reason {
 	QDF_DIRECT_LINK_ADSP_NMI_CRASH,
 	QDF_ENABLE_IRQ_FAILURE,
 	QDF_VDEV_LINK_MISMATCH,
+	QDF_DP_PEER_ID_DUPLICATE_USE,
 };
 
 /**

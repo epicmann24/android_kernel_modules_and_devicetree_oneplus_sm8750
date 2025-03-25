@@ -214,6 +214,13 @@ int oplus_ofp_init(void *dsi_panel)
 		p_oplus_ofp_params->need_to_bypass_gamut = utils->read_bool(utils->data, "oplus,ofp-need-to-bypass-gamut");
 		OFP_INFO("need_to_bypass_gamut:%d\n", p_oplus_ofp_params->need_to_bypass_gamut);
 
+		p_oplus_ofp_params->need_to_wait_te_before_aod_on = utils->read_bool(utils->data, "oplus,ofp-need-to-wait-te-before-aod-on");
+		OFP_INFO("need_to_wait_te_before_aod_on:%d\n", p_oplus_ofp_params->need_to_wait_te_before_aod_on);
+
+		/* indicates whether need to delay sometime before aod off cmd */
+		p_oplus_ofp_params->need_to_wait_sometime_before_aod_off = utils->read_bool(utils->data, "oplus,ofp-need-to-wait-sometime-before-aod-off");
+		OFP_INFO("need_to_wait_sometime_before_aod_off:%d\n", p_oplus_ofp_params->need_to_wait_sometime_before_aod_off);
+
 		/* read by the framework for compatibility with different aod modes */
 		rc = utils->read_u32(utils->data, "oplus,ofp-longrui-aod-config", &value);
 		if (rc) {
@@ -279,6 +286,17 @@ int oplus_ofp_init(void *dsi_panel)
 			p_oplus_ofp_params->need_to_update_lhbm_vdc = utils->read_bool(utils->data, "oplus,ofp-need-to-update-lhbm-vdc");
 			OFP_INFO("need_to_update_lhbm_vdc:%d\n", p_oplus_ofp_params->need_to_update_lhbm_vdc);
 		}
+	}
+
+	/* indicates how many frames cost from aod off cmd sent to normal frame */
+	rc = utils->read_u32(utils->data, "oplus,ofp-aod-off-frame-cost", &value);
+	if (rc) {
+		OFP_INFO("failed to read oplus,ofp-aod-off-frame-cost, rc=%d\n", rc);
+		/* set default value to 0 */
+		panel->oplus_panel.aod_off_frame_cost = 0;
+	} else {
+		panel->oplus_panel.aod_off_frame_cost = value;
+		OFP_INFO("aod_off_frame_cost:%d\n", panel->oplus_panel.aod_off_frame_cost);
 	}
 
 	if (!strcmp(panel->type, "secondary")) {
@@ -2704,6 +2722,26 @@ int oplus_ofp_aod_display_on_set(void *sde_encoder_phys)
 	return 0;
 }
 
+/*
+ as some panel has their own specific sequence, The aod off cmd cannot be used in the first frame where the aod on cmd takes effect.
+ if need_to_wait_sometime_before_aod_off is config, need to ensure that the interval between aod on and aod off is some time
+*/
+void oplus_ofp_wait_sometime_before_aod_off_handle(void *dsi_display)
+{
+	u32 interval, delay;
+	struct oplus_ofp_params *p_oplus_ofp_params = oplus_ofp_get_params(oplus_ofp_display_id);
+
+	interval = ktime_to_us(ktime_sub(ktime_get(), p_oplus_ofp_params->aod_on_cmd_timestamp));
+	if (interval < 17000) {
+		/* delay cmd to the next frame of aod_on for preventing screen flash */
+		delay = 17000 - interval;
+		OFP_INFO("need to delay for the interval between aod on and cur time was %d\n", delay);
+		usleep_range(delay, delay + 200);
+	}
+
+	return;
+}
+
 /* aod off handle */
 int oplus_ofp_aod_off_handle(void *dsi_display)
 {
@@ -2722,6 +2760,11 @@ int oplus_ofp_aod_off_handle(void *dsi_display)
 
 	/* doze disable handle */
 	OFP_INFO("aod off handle\n");
+
+	/* indicates whether need to delay sometime before aod off cmd, when aod on and aod off are adjacent frames */
+	if (p_oplus_ofp_params->need_to_wait_sometime_before_aod_off) {
+		oplus_ofp_wait_sometime_before_aod_off_handle(display);
+	}
 
 	/* make sure that ultra low power aod mode exit firstly */
 	if (oplus_ofp_ultra_low_power_aod_is_enabled() && p_oplus_ofp_params->ultra_low_power_aod_state
@@ -2763,6 +2806,22 @@ int oplus_ofp_aod_off_handle(void *dsi_display)
 	OFP_DEBUG("end\n");
 
 	return rc;
+}
+
+void oplus_ofp_wait_te_before_aod_on(struct dsi_panel *panel)
+{
+	unsigned int refresh_rate = 0;
+	refresh_rate = panel->cur_mode->timing.refresh_rate;
+
+	oplus_sde_early_wakeup(panel);
+	oplus_wait_for_vsync(panel);
+	if (refresh_rate == 60 || refresh_rate == 90) {
+		oplus_need_to_sync_te(panel);
+	} else {
+		usleep_range(300, 300);
+	}
+
+	return;
 }
 
 int oplus_ofp_power_mode_handle(void *dsi_display, int power_mode)
@@ -2846,7 +2905,12 @@ int oplus_ofp_power_mode_handle(void *dsi_display, int power_mode)
 
 			refresh_rate = display->panel->cur_mode->timing.refresh_rate;
 			if (!oplus_ofp_video_mode_aod_fod_is_enabled()
-					|| (oplus_ofp_video_mode_aod_fod_is_enabled() && (refresh_rate == 30))) {
+				|| (oplus_ofp_video_mode_aod_fod_is_enabled() && (refresh_rate == 30))) {
+				/* whether need to wait for TE before AOD on */
+				if (p_oplus_ofp_params->need_to_wait_te_before_aod_on) {
+					oplus_ofp_wait_te_before_aod_on(display->panel);
+				}
+
 				oplus_ofp_set_aod_state(true);
 
 				/* aod on */
@@ -2857,6 +2921,11 @@ int oplus_ofp_power_mode_handle(void *dsi_display, int power_mode)
 				rc = dsi_panel_set_lp2(display->panel);
 				if (rc) {
 					OFP_ERR("[%s] failed to send DSI_CMD_SET_LP2 cmds, rc=%d\n", display->name, rc);
+				}
+
+				if (p_oplus_ofp_params->need_to_wait_sometime_before_aod_off) {
+					p_oplus_ofp_params->aod_on_cmd_timestamp = ktime_get();
+					OFP_DEBUG("aod_on_cmd_timestamp:%lld\n", ktime_to_ms(p_oplus_ofp_params->aod_on_cmd_timestamp));
 				}
 
 				if (p_oplus_ofp_params->aod_light_mode) {

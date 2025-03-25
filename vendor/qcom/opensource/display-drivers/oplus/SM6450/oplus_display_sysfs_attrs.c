@@ -253,6 +253,10 @@ int dsi_panel_read_panel_reg_unlock(struct dsi_display_ctrl *ctrl,
 	cmdsreq.msg.rx_len = len;
 	cmdsreq.msg.flags |= MIPI_DSI_MSG_UNICAST_COMMAND;
 
+	if (panel->panel_mode == DSI_OP_VIDEO_MODE) {
+		cmdsreq.msg.flags |= MIPI_DSI_MSG_USE_LPM;
+	}
+
 	cmdsreq.ctrl_flags = DSI_CTRL_CMD_READ;
 
 	dsi_display_set_cmd_tx_ctrl_flags(display, &cmdsreq);
@@ -2697,74 +2701,61 @@ static ssize_t oplus_set_trackpoint_test_attr(struct kobject *obj,
 
 	switch (trackpoint_id) {
 	case OPLUS_DISP_Q_ERROR_CMD_TRANS_FAIL:
-		/* TODO */
-		/* EXCEPTION_TRACKPOINT_REPORT("DisplayDriverID@@%d$$trackpoint_test: Command transfer failed",
-				trackpoint_id); */
+		EXCEPTION_TRACKPOINT_REPORT("DisplayDriverID@@%d$$trackpoint_test: Command transfer failed",
+				trackpoint_id);
 		break;
 	case OPLUS_DISP_Q_ERROR_POWER_CHECK_FAIL:
-		/* TODO */
-		/* EXCEPTION_TRACKPOINT_REPORT("DisplayDriverID@@%d$$trackpoint_test: Failed to enable host power regs",
-				trackpoint_id); */
+		EXCEPTION_TRACKPOINT_REPORT("DisplayDriverID@@%d$$trackpoint_test: Failed to enable host power regs",
+				trackpoint_id);
 		break;
 	case OPLUS_DISP_Q_ERROR_DCDC_CHECK_FAIL:
-		/* TODO */
-		/* EXCEPTION_TRACKPOINT_REPORT("DisplayDriverID@@%d$$trackpoint_test: Failed to enable power resources",
-				trackpoint_id); */
+		EXCEPTION_TRACKPOINT_REPORT("DisplayDriverID@@%d$$trackpoint_test: Failed to enable power resources",
+				trackpoint_id);
 		break;
 	case OPLUS_DISP_Q_ERROR_ESD_CHECK_FAIL:
-		/* TODO */
-		/* EXCEPTION_TRACKPOINT_REPORT("DisplayDriverID@@%d$$trackpoint_test: ESD check failed",
-				trackpoint_id); */
+		EXCEPTION_TRACKPOINT_REPORT("DisplayDriverID@@%d$$trackpoint_test: ESD check failed",
+				trackpoint_id);
 		break;
 	case OPLUS_DISP_Q_ERROR_FENCE_TIMEOUT:
-		/* TODO */
-		/* EXCEPTION_TRACKPOINT_REPORT("DisplayDriverID@@%d$$trackpoint_test: fence timeout",
-				trackpoint_id); */
+		EXCEPTION_TRACKPOINT_REPORT("DisplayDriverID@@%d$$trackpoint_test: fence timeout",
+				trackpoint_id);
 		break;
 	case OPLUS_DISP_Q_ERROR_DMA_IRQ_TRIGGER_FAIL:
-		/* TODO */
-		/* EXCEPTION_TRACKPOINT_REPORT("DisplayDriverID@@%d$$trackpoint_test: dma_tx done but irq not triggered",
-				trackpoint_id); */
+		EXCEPTION_TRACKPOINT_REPORT("DisplayDriverID@@%d$$trackpoint_test: dma_tx done but irq not triggered",
+				trackpoint_id);
 		break;
 	case OPLUS_DISP_Q_ERROR_PTR_TIMEOUT:
-		/* TODO */
-		/* EXCEPTION_TRACKPOINT_REPORT("DisplayDriverID@@%d$$trackpoint_test: wr_ptr_irq timeout failed",
-				trackpoint_id); */
+		EXCEPTION_TRACKPOINT_REPORT("DisplayDriverID@@%d$$trackpoint_test: wr_ptr_irq timeout failed",
+				trackpoint_id);
 		break;
 	case OPLUS_DISP_Q_ERROR_UNDERRUN:
-		/* TODO */
-		/* EXCEPTION_TRACKPOINT_REPORT("DisplayDriverID@@%d$$trackpoint_test: SDE encoder underrun callback",
-				trackpoint_id); */
+		EXCEPTION_TRACKPOINT_REPORT("DisplayDriverID@@%d$$trackpoint_test: SDE encoder underrun callback",
+				trackpoint_id);
 		break;
 	case OPLUS_DISP_Q_ERROR_CTRL_HW:
-		/* TODO */
-		/* EXCEPTION_TRACKPOINT_REPORT("DisplayDriverID@@%d$$trackpoint_test: DSI_CTRL error",
-				trackpoint_id); */
+		EXCEPTION_TRACKPOINT_REPORT("DisplayDriverID@@%d$$trackpoint_test: DSI_CTRL error",
+				trackpoint_id);
 		break;
 	case OPLUS_DISP_Q_ERROR_PHY_HW:
-		/* TODO */
-		/* EXCEPTION_TRACKPOINT_REPORT("DisplayDriverID@@%d$$trackpoint_test: DSI_PHY error",
-				trackpoint_id); */
+		EXCEPTION_TRACKPOINT_REPORT("DisplayDriverID@@%d$$trackpoint_test: DSI_PHY error",
+				trackpoint_id);
 		break;
 	case OPLUS_DISP_Q_INFO_DYN_MIPI:
 	case OPLUS_DISP_Q_INFO_DYN_MIPI_INVALID:
-		/* TODO */
-		/* INFO_TRACKPOINT_REPORT("DisplayDriverID@@%d$$trackpoint_test: [INFO] MIPI dynamic clk",
-				trackpoint_id); */
+		INFO_TRACKPOINT_REPORT("DisplayDriverID@@%d$$trackpoint_test: [INFO] MIPI dynamic clk",
+				trackpoint_id);
 		break;
 	case OPLUS_DISP_Q_INFO_DYN_OSC:
 	case OPLUS_DISP_Q_INFO_DYN_OSC_INVALID:
-		/* TODO */
-		/* INFO_TRACKPOINT_REPORT("DisplayDriverID@@%d$$trackpoint_test: [INFO] OSC dynamic clk",
-				trackpoint_id); */
+		INFO_TRACKPOINT_REPORT("DisplayDriverID@@%d$$trackpoint_test: [INFO] OSC dynamic clk",
+				trackpoint_id);
 		break;
 	default:
 		OPLUS_DSI_WARN("%d use default trackpoint_id:%d for invalid input: %s\n",
 				trackpoint_id, OPLUS_DISP_Q_INFO_TEST, buf);
-		/* TODO */
-		/* trackpoint_id = OPLUS_DISP_Q_INFO_TEST;
+		trackpoint_id = OPLUS_DISP_Q_INFO_TEST;
 		EXCEPTION_TRACKPOINT_REPORT("DisplayDriverID@@%d$$trackpoint_test: %s",
-				trackpoint_id, buf); */
+				trackpoint_id, buf);
 		break;
 	}
 

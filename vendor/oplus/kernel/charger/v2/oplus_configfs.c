@@ -82,7 +82,7 @@ struct oplus_configfs_device {
 	struct votable *pps_curr_votable;
 	struct votable *wls_fcc_curr_votable;
 	struct votable *wired_disable_votable;
-	struct votable *plc_enable_votable;
+	struct votable *plc_force_buck_votable;
 
 	bool batt_exist;
 	int vbat_mv;
@@ -140,8 +140,6 @@ struct oplus_configfs_device {
 	unsigned int nvid_support_flags;
 	int eis_status;
 	int plc_status;
-	int plc_support;
-	int plc_buck;
 	bool plc_user_enable;
 };
 
@@ -250,11 +248,11 @@ static bool is_batt_bal_topic_available(struct oplus_configfs_device *chip)
 	return !!chip->batt_bal_topic;
 }
 
-static bool is_plc_enable_votable_available(struct oplus_configfs_device *chip)
+static bool is_plc_force_buck_votable_available(struct oplus_configfs_device *chip)
 {
-	if (!chip->plc_enable_votable)
-		chip->plc_enable_votable = find_votable("PLC_ENABLE");
-	return !!chip->plc_enable_votable;
+	if (!chip->plc_force_buck_votable)
+		chip->plc_force_buck_votable = find_votable("PLC_FORCE_BUCK");
+	return !!chip->plc_force_buck_votable;
 }
 
 __maybe_unused static bool is_comm_topic_available(struct oplus_configfs_device *chip)
@@ -2042,6 +2040,29 @@ static ssize_t gauge_type_show(struct device *dev,
 }
 static DEVICE_ATTR_RO(gauge_type);
 
+static ssize_t  battery_seal_flag_store(struct device *dev,
+			       struct device_attribute *attr, const char *buf,
+			       size_t count)
+{
+	int ret = 0;
+	int seal_flag;
+	struct oplus_configfs_device *chip = dev->driver_data;
+
+	if (kstrtos32(buf, 0, &seal_flag)) {
+		chg_err("buf error\n");
+		return -EINVAL;
+	}
+
+	ret = oplus_gauge_set_seal_flag(chip->gauge_topic, seal_flag);
+	if (ret < 0 && ret != -ENOTSUPP) {
+		chg_err("set seal_flag error");
+		 return -EINVAL;
+	}
+
+	return count;
+}
+static DEVICE_ATTR_WO(battery_seal_flag);
+
 static ssize_t vbat_uv_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
@@ -2219,6 +2240,7 @@ static struct device_attribute *oplus_battery_attributes[] = {
 	&dev_attr_eis_current,
 	&dev_attr_batt_bal_data,
 	&dev_attr_gauge_type,
+	&dev_attr_battery_seal_flag,
 	NULL
 };
 
@@ -2688,19 +2710,20 @@ static void oplus_configfs_plc_enable_work(struct work_struct *work)
 {
 	struct delayed_work *dwork = to_delayed_work(work);
 	struct oplus_configfs_device *chip = container_of(dwork, struct oplus_configfs_device, plc_enable_work);
-
-	if (!is_plc_enable_votable_available(chip))
-		goto err;
+	int rc;
 
 	if (!chip->plc_user_enable || !chip->wired_online)
-		goto err;
+		return;
 
-	if (get_client_vote(chip->plc_enable_votable, PLC_VOTER) != PLC_STATUS_DISABLE)
+	if (chip->plc_status != PLC_STATUS_DISABLE)
 		goto err;
 
 	chg_info("enable plc by kernel\n");
-	vote(chip->plc_enable_votable, PLC_VOTER, true, PLC_STATUS_ENABLE, false);
+	rc = oplus_chg_plc_enable(chip->plc_topic, true);
+	if (rc < 0)
+		chg_err("plc enable error, rc=%d\n", rc);
 	return;
+
 err:
 	chip->plc_user_enable = false;
 }
@@ -2727,10 +2750,8 @@ static ssize_t plc_show(struct device *dev, struct device_attribute *attr, char 
 		return -EINVAL;
 	}
 
-	if (is_plc_enable_votable_available(chip))
-		counts = get_client_vote(chip->plc_enable_votable, PLC_VOTER);
-
-	if (chip->plc_support && chip->retention_state && chip->plc_user_enable)
+	counts = chip->plc_status;
+	if (chip->retention_state && chip->plc_user_enable)
 		counts = PLC_STATUS_ENABLE;
 
 	return sprintf(buf, "status=%d\n", counts);
@@ -2740,11 +2761,9 @@ static ssize_t plc_store(struct device *dev, struct device_attribute *attr,
 					const char *buf, size_t count)
 {
 	struct oplus_configfs_device *chip = dev->driver_data;
-	int enable_vote = PLC_STATUS_ENABLE, curr_vote = PLC_STATUS_ENABLE;
-	int val = 0, adapter_support_mask = 0;
+	int val = 0;
 	char key[64] = { 0 };
 	int rc = 0;
-	struct mms_msg *msg;
 
 	if (!chip) {
 		chg_err("chip is NULL\n");
@@ -2752,11 +2771,6 @@ static ssize_t plc_store(struct device *dev, struct device_attribute *attr,
 	}
 	if (!buf) {
 		chg_err("buf is NULL\n");
-		return -EINVAL;
-	}
-
-	if (!is_plc_enable_votable_available(chip)) {
-		chg_err("plc_enable_votable not available\n");
 		return -EINVAL;
 	}
 
@@ -2771,57 +2785,17 @@ static ssize_t plc_store(struct device *dev, struct device_attribute *attr,
 			return -EINVAL;
 		}
 		chg_info("buf=[%s], change switch to  %d\n", buf, val);
-		chip->plc_status = !!val;
-		curr_vote = get_client_vote(chip->plc_enable_votable, PLC_VOTER);
-		if (chip->retention_state && !val)
-			chip->plc_user_enable = false;
-		if (curr_vote == PLC_STATUS_ENABLE && !val) {
-			enable_vote = PLC_STATUS_WAIT;
-			chip->plc_user_enable = false;
-		} else if (curr_vote == PLC_STATUS_DISABLE && !!val) {
-			enable_vote = PLC_STATUS_ENABLE;
-			chip->plc_user_enable = true;
-		} else {
-			return count;
-		}
-
-		if (is_plc_enable_votable_available(chip))
-			vote(chip->plc_enable_votable, PLC_VOTER, true, enable_vote, false);
-	} else if (sysfs_streq("adapter_support_mask", key)) {
-		chg_info("buf=[%s], change adapter_support_mask to %x\n", buf, val);
-		if (val != chip->plc_support) {
-			chip->plc_support = val;
-			adapter_support_mask = val;
-			msg = oplus_mms_alloc_int_msg(MSG_TYPE_ITEM, MSG_PRIO_MEDIUM, PLC_ITEM_SUPPORT, val);
-			if (msg == NULL) {
-				chg_err("alloc msg error\n");
-				return -ENOMEM;
-			}
-			rc = oplus_mms_publish_msg(chip->plc_topic, msg);
-			if (rc < 0) {
-				chg_err("publish plc support msg error, rc=%d\n", rc);
-				kfree(msg);
-			}
+		chip->plc_user_enable = !!val;
+		rc = oplus_chg_plc_enable(chip->plc_topic, !!val);
+		if (rc < 0) {
+			chg_err("plc %s error, rc=%d\n", !!val ? "enable" : "disable", rc);
+			return rc;
 		}
 	} else if (sysfs_streq("buck", key)) {
 		chg_info("buf=[%s], change buck to %x\n", buf, val);
-		if (val != chip->plc_buck) {
-			chip->plc_buck = !!val;
-			msg = oplus_mms_alloc_int_msg(MSG_TYPE_ITEM, MSG_PRIO_MEDIUM, PLC_ITEM_BUCK, !!val);
-			if (msg == NULL) {
-				chg_err("alloc msg error\n");
-				return -ENOMEM;
-			}
-			rc = oplus_mms_publish_msg(chip->plc_topic, msg);
-			if (rc < 0) {
-				chg_err("publish plc buck msg error, rc=%d\n", rc);
-				kfree(msg);
-			}
-		}
+		if (is_plc_force_buck_votable_available(chip))
+			vote(chip->plc_force_buck_votable, USER_VOTER, !!val, val, false);
 	}
-	chg_info("%s[%d, %d, %d][%d, %d, %d]\n",
-		plc_enable_status_str(enable_vote), val, enable_vote, curr_vote,
-		chip->plc_support, chip->plc_status, chip->plc_buck);
 
 	return count;
 }
@@ -4169,7 +4143,7 @@ static void oplus_configfs_wired_subs_callback(struct mms_subscribe *subs,
 			chip->wired_online = data.intval;
 			if (!chip->wired_online) {
 				schedule_work(&chip->eis_reset_work);
-				if (chip->plc_support && chip->plc_user_enable) {
+				if (chip->plc_user_enable) {
 					cancel_delayed_work(&chip->clean_plc_enable_work);
 					schedule_delayed_work(&chip->clean_plc_enable_work,
 						msecs_to_jiffies(CLEAN_PLC_ENABLE_DELAY_MS));
@@ -4612,7 +4586,7 @@ static void oplus_configfs_retention_subs_callback(struct mms_subscribe *subs,
 		case RETENTION_ITEM_CONNECT_STATUS:
 			oplus_mms_get_item_data(chip->retention_topic, id, &data, false);
 			chip->retention_state = data.intval;
-			if (chip->plc_support && chip->plc_user_enable && chip->retention_state) {
+			if (chip->plc_user_enable && chip->retention_state) {
 				cancel_delayed_work(&chip->plc_enable_work);
 				schedule_delayed_work(&chip->plc_enable_work, msecs_to_jiffies(PLC_ENABLE_DELAY_MS));
 			}
@@ -4655,18 +4629,10 @@ static void oplus_configfs_plc_subs_callback(struct mms_subscribe *subs,
 	switch (type) {
 	case MSG_TYPE_ITEM:
 		switch (id) {
-		case PLC_ITEM_SUPPORT:
-			oplus_mms_get_item_data(chip->plc_topic, id, &data, false);
-			chip->plc_support = data.intval;
-			break;
 		case PLC_ITEM_STATUS:
 			oplus_mms_get_item_data(chip->plc_topic, id, &data, false);
 			chip->plc_status = data.intval;
 			chg_info(" update plc_status=%d\n", chip->plc_status);
-			break;
-		case PLC_ITEM_BUCK:
-			oplus_mms_get_item_data(chip->plc_topic, id, &data, false);
-			chip->plc_buck = data.intval;
 			break;
 		default:
 			break;
@@ -4699,16 +4665,6 @@ static void oplus_configfs_subscribe_plc_topic(struct oplus_mms *topic,
 		chg_err("can't get plc status data, rc=%d", rc);
 	else
 		chip->plc_status = data.intval;
-	rc = oplus_mms_get_item_data(chip->plc_topic, PLC_ITEM_SUPPORT, &data, true);
-	if (rc < 0)
-		chg_err("can't get plc support data, rc=%d", rc);
-	else
-		chip->plc_support = data.intval;
-	rc = oplus_mms_get_item_data(chip->plc_topic, PLC_ITEM_BUCK, &data, true);
-	if (rc < 0)
-		chg_err("can't get plc buck data, rc=%d", rc);
-	else
-		chip->plc_buck = data.intval;
 
 	return;
 }

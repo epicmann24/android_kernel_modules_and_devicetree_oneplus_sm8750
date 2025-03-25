@@ -15,8 +15,4 @@ ifeq ($(CONFIG_OPLUS_FEATURE_ALARMTIMER_HOOK), m)
 $(MODULE)-objs += alarmtimer_hook/oplus_alarmtimer_hook.o
 endif
 
-ifeq ($(CONFIG_OPLUS_FEATURE_NETLINK_HOOK), m)
-$(MODULE)-objs += netlink_hook/oplus_netlink_hook.o
-endif
-
 obj-$(CONFIG_OPLUS_FEATURE_POWER_HOOK) += $(MODULE).o

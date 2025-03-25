@@ -8565,6 +8565,8 @@ static void lim_intersect_eht_caps(tDot11fIEeht_cap *rcvd_eht,
 		peer_eht->support_320mhz_6ghz = 1;
 	else
 		peer_eht->support_320mhz_6ghz = 0;
+
+	peer_eht->mcs_15 = session_eht->mcs_15 & rcvd_eht->mcs_15;
 }
 
 void lim_update_usr_eht_cap(struct mac_context *mac_ctx,
@@ -11099,6 +11101,11 @@ QDF_STATUS lim_pre_vdev_start(struct mac_context *mac,
 
 	band = wlan_reg_freq_to_band(session->curr_op_freq);
 	band_mask = 1 << band;
+
+	if (session->ch_width == CH_WIDTH_80P80MHZ) {
+		session->ch_width = CH_WIDTH_80MHZ;
+		session->ch_center_freq_seg1 = 0;
+	}
 
 	ch_params.ch_width = session->ch_width;
 	ch_params.mhz_freq_seg0 =

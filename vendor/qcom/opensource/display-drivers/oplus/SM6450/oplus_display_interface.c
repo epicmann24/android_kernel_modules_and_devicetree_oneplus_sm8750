@@ -168,6 +168,11 @@ void oplus_display_enable_pre(struct dsi_display *display)
 	display->panel->power_mode = SDE_MODE_DPMS_ON;
 	__oplus_read_apl_thread_ctl(true);
 
+	if (display->panel->panel_mode == DSI_OP_VIDEO_MODE) {
+		OPLUS_DSI_INFO("panel video mode skip first read serial_number\n");
+		return;
+	}
+
 	if (display->oplus_display.panel_sn != 0) {
 		OPLUS_DSI_INFO("panel serial_number have read in UEFI, serial_number = [%016lX]\n",
 					display->oplus_display.panel_sn);

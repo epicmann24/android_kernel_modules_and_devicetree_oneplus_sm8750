@@ -196,6 +196,12 @@
 					39 00 00 40 00 00 05 B1 73 5C D6 AB
 					39 00 00 40 00 00 02 F7 0F
 					39 00 00 40 00 00 03 F0 A5 A5
+					/* PMIC transition period W/A */
+					39 00 00 40 00 00 03 F0 5A 5A
+					39 00 00 40 00 00 04 B0 00 94 D4
+					39 00 00 40 00 00 03 D4 11 00
+					39 00 00 40 00 00 02 F7 0F
+					39 00 00 00 00 00 03 F0 A5 A5
 					/* Solve the problem of mirror display shadow */
 					39 00 00 40 00 00 03 F0 5A 5A
 					39 00 00 40 00 00 04 B0 00 4A E1
@@ -217,7 +223,7 @@
 
 				qcom,mdss-dsi-lp1-command = [
 					/* AOD 30Hz */
-					39 00 00 40 0C 00 03 F0 5A 5A
+					39 00 00 40 00 00 03 F0 5A 5A
 					39 00 00 40 00 00 03 FC 5A 5A
 					39 00 00 40 00 00 04 B0 00 C6 D5
 					15 00 00 40 00 00 02 D5 00
@@ -558,6 +564,12 @@
 					39 00 00 40 00 00 05 B1 73 5C D6 AB
 					39 00 00 40 00 00 02 F7 0F
 					39 00 00 40 00 00 03 F0 A5 A5
+					/* PMIC transition period W/A */
+					39 00 00 40 00 00 03 F0 5A 5A
+					39 00 00 40 00 00 04 B0 00 94 D4
+					39 00 00 40 00 00 03 D4 11 00
+					39 00 00 40 00 00 02 F7 0F
+					39 00 00 00 00 00 03 F0 A5 A5
 					/* Solve the problem of mirror display shadow */
 					39 00 00 40 00 00 03 F0 5A 5A
 					39 00 00 40 00 00 04 B0 00 4A E1
@@ -579,7 +591,7 @@
 
 				qcom,mdss-dsi-lp1-command = [
 					/* AOD 30Hz */
-					39 00 00 40 05 00 03 F0 5A 5A
+					39 00 00 40 00 00 03 F0 5A 5A
 					39 00 00 40 00 00 03 FC 5A 5A
 					39 00 00 40 00 00 04 B0 00 C6 D5
 					15 00 00 40 00 00 02 D5 00
@@ -920,6 +932,12 @@
 					39 00 00 40 00 00 05 B1 73 5C D6 AB
 					39 00 00 40 00 00 02 F7 0F
 					39 00 00 40 00 00 03 F0 A5 A5
+					/* PMIC transition period W/A */
+					39 00 00 40 00 00 03 F0 5A 5A
+					39 00 00 40 00 00 04 B0 00 94 D4
+					39 00 00 40 00 00 03 D4 11 00
+					39 00 00 40 00 00 02 F7 0F
+					39 00 00 00 00 00 03 F0 A5 A5
 					/* Solve the problem of mirror display shadow */
 					39 00 00 40 00 00 03 F0 5A 5A
 					39 00 00 40 00 00 04 B0 00 4A E1
@@ -941,7 +959,7 @@
 
 				qcom,mdss-dsi-lp1-command = [
 					/* AOD 30Hz */
-					39 00 00 40 05 00 03 F0 5A 5A
+					39 00 00 40 00 00 03 F0 5A 5A
 					39 00 00 40 00 00 03 FC 5A 5A
 					39 00 00 40 00 00 04 B0 00 C6 D5
 					15 00 00 40 00 00 02 D5 00
@@ -1229,6 +1247,8 @@
 	oplus,ofp-longrui-aod-config = <0x02>;
 	oplus,ofp-need-to-bypass-gamut;
 	oplus,ofp-need-to-wait-data-before-aod-on;
+	oplus,ofp-need-to-wait-te-before-aod-on;
+	oplus,ofp-need-to-wait-sometime-before-aod-off;
 
 	/* pwm config */
 	/*	oplus,pwm-switch-config:

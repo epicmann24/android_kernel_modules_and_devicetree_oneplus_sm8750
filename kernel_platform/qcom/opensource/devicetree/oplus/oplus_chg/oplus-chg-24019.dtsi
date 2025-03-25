@@ -26,6 +26,7 @@
 
 		oplus,adc_info_name = "855";
 		oplus,topic-update-interval = <5000>;
+		high-temp-scheme;
 
 		oplus,support_usbtemp_protect_v2;
 		oplus,support_wlsotg_non_coexistence;
@@ -571,6 +572,7 @@
 		oplus,gauge_stuck_threshold = <15>;
 		oplus,gauge_stuck_time = <50>;
 
+		oplus_spec,sw_check_full_cnt = <12>;
 		oplus,smooth_switch;
 		oplus,reserve_chg_soc = <3>;
 		oplus,reserve_dis_soc = <3>;
@@ -926,6 +928,10 @@
 		qcom,batt_bq28z610;
 		oplus,batt_num = <2>;
 		qcom,gauge_num = <0>;
+		oplus,bq28z610_afi_buf = /bits/ 8 <
+			/* checksum data_len data+ */
+			0xf7 0x04 0xf4 0x46 0xce 0x00 /* Charge Term Taper Current 206mA */
+			>;
 
 		oplus,ic_type = <OPLUS_CHG_IC_GAUGE>;
 		oplus,ic_index = <0>;

@@ -3612,6 +3612,14 @@ int sde_connector_esd_status(struct drm_connector *conn)
 		mutex_unlock(&sde_conn->lock);
 		return -ETIMEDOUT;
 	}
+#ifdef OPLUS_FEATURE_DISPLAY
+	if (oplus_display_ops.display_check_status_pre) {
+		if (oplus_display_ops.display_check_status_pre(display->panel)) {
+			mutex_unlock(&sde_conn->lock);
+			return -ETIMEDOUT;
+		}
+	}
+#endif /* OPLUS_FEATURE_DISPLAY */
 	ret = sde_conn->ops.check_status(&sde_conn->base,
 					 sde_conn->display, true);
 	mutex_unlock(&sde_conn->lock);
@@ -3652,7 +3660,14 @@ static void sde_connector_check_status_work(struct work_struct *work)
 		mutex_unlock(&conn->lock);
 		return;
 	}
-
+#ifdef OPLUS_FEATURE_DISPLAY
+	if (oplus_display_ops.display_check_status_pre) {
+		if (oplus_display_ops.display_check_status_pre(((struct dsi_display *)(conn->display))->panel)) {
+			mutex_unlock(&conn->lock);
+			return;
+		}
+	}
+#endif /* OPLUS_FEATURE_DISPLAY */
 	rc = conn->ops.check_status(&conn->base, conn->display, false);
 	mutex_unlock(&conn->lock);
 

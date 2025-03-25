@@ -582,7 +582,7 @@ int oplus_panel_pwm_dbv_threshold_switch_tx_cmd(struct dsi_panel *panel)
 		panel->oplus_panel.pwm_params.pwm_power_on = false;
 		panel->oplus_panel.pwm_params.pwm_state_changed = false;
 		if (panel->oplus_panel.pwm_params.pwm_switch_state == PWM_SWITCH_MODE1 && panel->bl_config.bl_level > 1162) {
-			rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_PWM_STATE_L2TOL1, false);
+			rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_PWM_SWITCH_MODE2, false);
 		}
 		return rc;
 	}

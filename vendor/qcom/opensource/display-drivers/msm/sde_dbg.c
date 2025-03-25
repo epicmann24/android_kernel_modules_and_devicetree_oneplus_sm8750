@@ -1670,48 +1670,17 @@ void sde_dbg_ctrl(const char *name, ...)
 	va_end(args);
 }
 
-#ifdef OPLUS_FEATURE_DISPLAY
-ssize_t oplus_sde_evtlog_dump_read(struct file *file, char __user *buff,
-		size_t count, loff_t *ppos)
-{
-	ssize_t len = 0;
-	char evtlog_buf[SDE_EVTLOG_BUF_MAX];
-
-	if (!buff || !ppos)
-		return -EINVAL;
-
-	mutex_lock(&sde_dbg_base.mutex);
-	sde_dbg_base.cur_evt_index = 0;
-	sde_dbg_base.evtlog->first = (u32)atomic_add_return(0, &sde_dbg_base.evtlog->curr) + 1;
-	atomic_set(&sde_dbg_base.evtlog->last, sde_dbg_base.evtlog->first + SDE_EVTLOG_ENTRY);
-
-	len = sde_evtlog_dump_to_buffer(sde_dbg_base.evtlog,
-			evtlog_buf, SDE_EVTLOG_BUF_MAX,
-			!sde_dbg_base.cur_evt_index, true);
-	sde_dbg_base.cur_evt_index++;
-	mutex_unlock(&sde_dbg_base.mutex);
-
-	if (len < 0 || len > count) {
-		pr_err("len is more than user buffer size");
-		return 0;
-	}
-
-	if (copy_to_user(buff, evtlog_buf, len))
-		return -EFAULT;
-	*ppos += len;
-
-	return len;
-}
-EXPORT_SYMBOL(oplus_sde_evtlog_dump_read);
-#endif /* OPLUS_FEATURE_DISPLAY */
-
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 /*
  * sde_dbg_debugfs_open - debugfs open handler for evtlog dump
  * @inode: debugfs inode
  * @file: file handle
  */
+#ifdef OPLUS_FEATURE_DISPLAY
+int sde_dbg_debugfs_open(struct inode *inode, struct file *file)
+#else /* OPLUS_FEATURE_DISPLAY */
 static int sde_dbg_debugfs_open(struct inode *inode, struct file *file)
+#endif /* OPLUS_FEATURE_DISPLAY */
 {
 	if (!inode || !file)
 		return -EINVAL;
@@ -1727,6 +1696,9 @@ static int sde_dbg_debugfs_open(struct inode *inode, struct file *file)
 	mutex_unlock(&sde_dbg_base.mutex);
 	return 0;
 }
+#ifdef OPLUS_FEATURE_DISPLAY
+EXPORT_SYMBOL(sde_dbg_debugfs_open);
+#endif /* OPLUS_FEATURE_DISPLAY */
 
 /*
  * sde_dbg_reg_base_open - debugfs open handler for reg base
@@ -1765,8 +1737,13 @@ static int sde_dbg_reg_base_open(struct inode *inode, struct file *file)
  * @count: size of user buffer
  * @ppos: position offset of user buffer
  */
+#ifdef OPLUS_FEATURE_DISPLAY
+ssize_t sde_evtlog_dump_read(struct file *file, char __user *buff,
+		size_t count, loff_t *ppos)
+#else /* OPLUS_FEATURE_DISPLAY */
 static ssize_t sde_evtlog_dump_read(struct file *file, char __user *buff,
 		size_t count, loff_t *ppos)
+#endif /* OPLUS_FEATURE_DISPLAY */
 {
 	ssize_t len = 0;
 	char evtlog_buf[SDE_EVTLOG_BUF_MAX];
@@ -1792,6 +1769,9 @@ static ssize_t sde_evtlog_dump_read(struct file *file, char __user *buff,
 
 	return len;
 }
+#ifdef OPLUS_FEATURE_DISPLAY
+EXPORT_SYMBOL(sde_evtlog_dump_read);
+#endif /* OPLUS_FEATURE_DISPLAY */
 
 /**
  * sde_evtlog_dump_write - debugfs write handler for evtlog dump

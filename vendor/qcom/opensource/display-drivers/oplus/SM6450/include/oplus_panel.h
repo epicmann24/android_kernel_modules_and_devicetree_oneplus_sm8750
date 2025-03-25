@@ -172,6 +172,7 @@ struct oplus_panel {
 	bool oplus_vreg_ctrl_flag;
 	/* add for all wait te demand */
 	u32 wait_te_config;
+	bool change_voltage_before_panel_bl_0;
 
 	/* ---------------- feature variate ---------------- */
 	bool dp_support;

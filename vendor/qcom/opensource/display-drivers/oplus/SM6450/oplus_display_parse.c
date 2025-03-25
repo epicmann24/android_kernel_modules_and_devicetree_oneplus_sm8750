@@ -309,6 +309,11 @@ int oplus_panel_parse_features_config(struct dsi_panel *panel)
 	OPLUS_DSI_INFO("oplus,panel_init_compatibility_enable: %s\n",
 			panel->oplus_panel.vid_timming_switch_enabled ? "true" : "false");
 
+	panel->oplus_panel.change_voltage_before_panel_bl_0 = utils->read_bool(utils->data,
+			"oplus,change-voltage-before-panel-bl-0-enable");
+	OPLUS_DSI_INFO("oplus,change-voltage-before-panel-bl-0-enable: %s\n",
+			panel->oplus_panel.change_voltage_before_panel_bl_0 ? "true" : "false");
+
 	return 0;
 }
 

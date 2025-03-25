@@ -158,10 +158,13 @@ struct oplus_ofp_params {
 	bool doze_active;								/* indicates whether the current power mode is doze/doze suspend or not */
 	bool aod_state;									/* indicates whether panel is aod state or not */
 	bool need_to_wait_data_before_aod_on;			/* indicates whether display on cmd(29h) needs to be sent after image data write before aod on or not */
+	bool need_to_wait_te_before_aod_on;				/* indicates whether need to wait for TE before AOD on, avoid aod on cmd crossing TE */
+	bool need_to_wait_sometime_before_aod_off;		/* indicates whether need to delay sometime before aod off cmd */
 	bool wait_data_before_aod_on;					/* indicates whether to start waiting image data before aod on or not */
 	bool aod_unlocking;								/* indicates whether the fingerprint unlocking is in aod state or not */
 	unsigned int aod_off_hbm_on_delay;				/* indicates that how many frames need to wait to separate aod off cmds and hbm on cmds */
 	ktime_t aod_off_cmd_timestamp;					/* record aod off cmds timestamp for aod off hbm on delay judgment */
+	ktime_t aod_on_cmd_timestamp;					/* record aod on cmds timestamp for aod off delay judgment */
 	unsigned int aod_light_mode;					/* aod brightness setting, 0:50nit, 1:10nit */
 	bool ultra_low_power_aod_state;					/* indicates whether panel is ultra low power aod state or not */
 	unsigned int ultra_low_power_aod_mode;			/* indicates whether ultra low power aod mode needs to be entered or not */
@@ -174,6 +177,10 @@ struct oplus_ofp_params {
 													 bit(0):0:aod off 1:aod on
 													 bit(1):a mirror to the end aod mode is enabled
 													 bit(2):full screen aod mode is enabled
+													*/
+	unsigned int aod_off_frame_cost;				/*
+													 indicates how manty frames cost from aod off cmd sent to normal frame, "0" means once aod off cmd sent
+													 the next frame will be normal frame
 													*/
 	struct workqueue_struct *aod_display_on_set_wq;	/* a workqueue used to send display on(29) cmd after image data write before aod on */
 	struct work_struct aod_display_on_set_work;		/* a work struct used to send display on(29) cmd after image data write before aod on */
@@ -250,7 +257,9 @@ int oplus_ofp_lhbm_dbv_alpha_update(void *dsi_panel, unsigned int bl_level, bool
 /* -------------------- aod -------------------- */
 void oplus_ofp_aod_display_on_set_work_handler(struct work_struct *work_item);
 int oplus_ofp_aod_display_on_set(void *sde_encoder_phys);
+void oplus_ofp_wait_sometime_before_aod_off_handle(void *dsi_display);
 int oplus_ofp_aod_off_handle(void *dsi_display);
+void oplus_ofp_wait_te_before_aod_on(struct dsi_panel *panel);
 int oplus_ofp_power_mode_handle(void *dsi_display, int power_mode);
 int oplus_ofp_video_mode_aod_handle(void *dsi_display, void *dsi_display_mode);
 void oplus_ofp_aod_off_set_work_handler(struct work_struct *work_item);

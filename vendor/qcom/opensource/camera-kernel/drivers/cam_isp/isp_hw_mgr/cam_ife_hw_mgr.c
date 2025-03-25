@@ -15020,10 +15020,8 @@ static void cam_ife_mgr_dump_pf_data(
 	pf_args = hw_cmd_args->u.pf_cmd_args->pf_args;
 	ctx_found = &(pf_args->pf_context_info.ctx_found);
 
-    if ((*ctx_found) && (ctx->flags.pf_mid_found)) {
-            CAM_ERR(CAM_ISP, "CTX Found failed during IFE PF Dump.");
-            return;
-    }
+	if ((*ctx_found) && (ctx->flags.pf_mid_found))
+		goto outportlog;
 
 	/* Determine if the current context is the faulted context based on pid */
 	for (i = 0; i < ctx->num_base; i++) {
@@ -15076,6 +15074,9 @@ static void cam_ife_mgr_dump_pf_data(
 
 	cam_ife_mgr_pf_dump(ctx);
 
+outportlog:
+	cam_packet_util_dump_io_bufs(packet, hw_mgr->mgr_common.img_iommu_hdl,
+		hw_mgr->mgr_common.img_iommu_hdl_secure, pf_args, true);
 }
 
 int cam_isp_config_csid_rup_aup(

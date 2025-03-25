@@ -132,7 +132,9 @@ const char *cmd_set_prop_map[DSI_CMD_SET_MAX] = {
 #ifdef OPLUS_FEATURE_DISPLAY_ONSCREENFINGERPRINT
 	"qcom,mdss-dsi-hbm-on-command",
 	"qcom,mdss-dsi-hbm-on-onepulse-command",
+	"qcom,mdss-dsi-hbm-on-60hz-command",
 	"qcom,mdss-dsi-hbm-off-command",
+	"qcom,mdss-dsi-hbm-off-60hz-command",
 	"qcom,mdss-dsi-lhbm-pressed-icon-gamma-command",
 	"qcom,mdss-dsi-lhbm-pressed-icon-grayscale-command",
 	"qcom,mdss-dsi-lhbm-pressed-icon-on-command",
@@ -180,6 +182,7 @@ const char *cmd_set_prop_map[DSI_CMD_SET_MAX] = {
 	"qcom,mdss-dsi-hbm-exit-switch-command",
 	"qcom,mdss-dsi-hbm-max-command",
 	"qcom,mdss-dsi-hbm-exit-max-command",
+	"qcom,mdss-dsi-change-voltage-before-bl-0-command",
 	"qcom,mdss-dsi-pwm-switch-mode0-command",
 	"qcom,mdss-dsi-pwm-switch-mode1-command",
 	"qcom,mdss-dsi-pwm-switch-mode2-command",
@@ -353,7 +356,9 @@ const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
 #ifdef OPLUS_FEATURE_DISPLAY_ONSCREENFINGERPRINT
 	"qcom,mdss-dsi-hbm-on-command-state",
 	"qcom,mdss-dsi-hbm-on-onepulse-command-state",
+	"qcom,mdss-dsi-hbm-on-60hz-command-state",
 	"qcom,mdss-dsi-hbm-off-command-state",
+	"qcom,mdss-dsi-hbm-off-60hz-command-state"
 	"qcom,mdss-dsi-lhbm-pressed-icon-gamma-command-state",
 	"qcom,mdss-dsi-lhbm-pressed-icon-grayscale-command-state",
 	"qcom,mdss-dsi-lhbm-pressed-icon-on-command-state",
@@ -401,6 +406,7 @@ const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
 	"qcom,mdss-dsi-hbm-exit-switch-command-state",
 	"qcom,mdss-dsi-hbm-max-command-state",
 	"qcom,mdss-dsi-hbm-exit-max-command-state",
+	"qcom,mdss-dsi-change-voltage-before-bl-0-command-state",
 	"qcom,mdss-dsi-pwm-switch-mode0-command-state",
 	"qcom,mdss-dsi-pwm-switch-mode1-command-state",
 	"qcom,mdss-dsi-pwm-switch-mode2-command-state",

@@ -158,6 +158,11 @@ int oplus_panel_parse_bl_cfg(struct dsi_panel *panel)
 	OPLUS_DSI_INFO("oplus,dsi_demura2_offset_support: %s\n",
 			panel->oplus_panel.bl_cfg.oplus_demura2_offset_support ? "true" : "false");
 
+	panel->oplus_panel.bl_cfg.backlight_check_disable = utils->read_bool(utils->data,
+			"oplus,panel_backlight_check_disable");
+	OPLUS_DSI_INFO("oplus,panel_backlight_check_disable: %s\n",
+			panel->oplus_panel.bl_cfg.backlight_check_disable ? "true" : "false");
+
 	return 0;
 }
 
@@ -1161,4 +1166,44 @@ void oplus_printf_backlight_log(struct dsi_display *display, u32 bl_lvl) {
 		}
 		OPLUS_DSI_INFO("<%s> len:%d dsi_display_set_backlight %s\n", display->panel->oplus_panel.vendor_name, len, backlight_log_buf);
 	}
+}
+
+int oplus_panel_backlight_check(struct dsi_panel *panel)
+{
+	int rc = 0;
+	u32 bl_lvl = 0;
+	u32 bl_52_lvl = 0;
+	struct dsi_display_ctrl *m_ctrl = NULL;
+	struct dsi_display *display = NULL;
+	unsigned char read[30];
+
+	if (panel->oplus_panel.bl_cfg.backlight_check_disable) {
+		OPLUS_DSI_DEBUG("panel backlight check disable\n");
+		return rc;
+	}
+
+	display = to_dsi_display(panel->host);
+
+	if (!display) {
+		OPLUS_DSI_ERR("display is NULL\n");
+		return -EINVAL;
+	}
+
+	m_ctrl = &display->ctrl[display->cmd_master_idx];
+
+	rc = dsi_panel_read_panel_reg_unlock(m_ctrl, panel, 0x52, read, 2);
+	if (rc < 0) {
+		OPLUS_DSI_ERR("failed to read 52 ret=%d\n", rc);
+		return -EINVAL;
+	}
+
+	bl_52_lvl = (read[0] << 8) | read[1];
+	bl_lvl = panel->bl_config.bl_level;
+
+	OPLUS_DSI_INFO("bl_lvl=%u, read panel reg of 52=%u\n", bl_lvl, bl_52_lvl);
+	if ((bl_lvl != 0) && (bl_52_lvl == 0)) {
+		OPLUS_DSI_ERR("The backlight sent by AP is not effective on the panel\n");
+	}
+
+	return rc;
 }

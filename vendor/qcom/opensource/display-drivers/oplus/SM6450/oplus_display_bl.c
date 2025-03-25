@@ -1033,6 +1033,19 @@ u32 oplus_panel_silence_backlight(struct dsi_panel *panel, u32 bl_lvl)
 	return bl_temp;
 }
 
+static int oplus_panel_change_voltage_before_panel_bl_0(struct dsi_panel *panel, u32 oplus_current_backlight) {
+	int rc = 0;
+	if (oplus_current_backlight == 0) {
+		if (panel->oplus_panel.change_voltage_before_panel_bl_0) {
+			rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_CHANGE_VOLTAGE_BEFORE_BL_0, false);
+			if (rc) {
+				OPLUS_DSI_ERR("failed to oplus_panel_change_voltage_before_panel_bl_0\n");
+			}
+		}
+	}
+	return 0;
+}
+
 void oplus_panel_update_backlight(struct dsi_panel *panel,
 		struct mipi_dsi_device *dsi, u32 bl_lvl)
 {
@@ -1064,6 +1077,8 @@ void oplus_panel_update_backlight(struct dsi_panel *panel,
 		if (bl_lvl > panel->oplus_panel.bl_cfg.oplus_limit_max_bl)
 			bl_lvl = panel->oplus_panel.bl_cfg.oplus_limit_max_bl;
 	}
+
+	oplus_panel_change_voltage_before_panel_bl_0(panel, bl_lvl);
 #endif
 
 	oplus_temp_compensation_wait_for_vsync_set = false;

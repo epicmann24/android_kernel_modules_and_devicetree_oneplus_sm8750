@@ -22,6 +22,7 @@
 #include <linux/cpufeature.h>
 #include <linux/sched/clock.h>
 #include <linux/thread_info.h>
+#include <linux/threads.h>
 #include <linux/profile.h>
 #include <linux/kprobes.h>
 #include <linux/cgroup.h>
@@ -86,6 +87,17 @@
 #define RT_R_MULT_UNIT (CFS_R_MULT_UNIT * SCHED_MAX_CFS_R)
 #define AFFINITY_MASK_MULT_UNIT (RT_R_MULT_UNIT * SCHED_MAX_RT_R)
 #define AFFINITY_SET_MULT_UNIT (AFFINITY_MASK_MULT_UNIT * SCHED_MAX_AFFINITY_MASK)
+
+#ifdef CONFIG_OPLUS_SCHED_HALT_MASK_PRT
+#define SCHED_PARTIAL_HALT_OFFSET 10000LL
+
+cpumask_t cur_cpus_halt_mask = { CPU_BITS_NONE };
+EXPORT_SYMBOL(cur_cpus_halt_mask);
+cpumask_t cur_cpus_phalt_mask = { CPU_BITS_NONE };
+EXPORT_SYMBOL(cur_cpus_phalt_mask);
+DEFINE_PER_CPU(int[OPLUS_MAX_PAUSE_TYPE], oplus_cur_pause_client);
+EXPORT_SYMBOL(oplus_cur_pause_client);
+#endif /* CONFIG_OPLUS_SCHED_HALT_MASK_PRT */
 
 #ifdef CONFIG_OPLUS_FEATURE_TICK_GRAN
 DEFINE_PER_CPU(u64, retired_instrs);
@@ -669,7 +681,7 @@ void sched_info_systrace_c(unsigned int cpu, struct task_struct *p)
 	s_info += ((u8)cpumask_bits(&p->cpus_mask)[0]) * AFFINITY_MASK_MULT_UNIT;
 	if (cpumask_weight(&p->cpus_mask) < nr_cpu_ids) {
 		if (ots && likely(test_bit(OTS_STATE_SET_AFFINITY, &ots->state))
-			&& ots->affinity_pid > 0 && ots->affinity_pid < MAX_PID)
+			&& ots->affinity_pid > 0 && ots->affinity_pid < PID_MAX_LIMIT)
 			s_info += ((u64)ots->affinity_pid) * AFFINITY_SET_MULT_UNIT;
 	}
 	snprintf(buf, sizeof(buf), "C|9999|Cpu%d_sched_info|%llu\n", cpu, s_info);
@@ -700,6 +712,38 @@ void sa_scene_systrace_c(void)
 	}
 }
 
+#ifdef CONFIG_OPLUS_SCHED_HALT_MASK_PRT
+void sa_corectl_systrace_c(void)
+{
+	char buf[256];
+	int cur_mask;
+	u64 halt_info = 0;
+	unsigned int cpu;
+	int *cur_client_state;
+
+	if (likely(!(global_debug_enabled & DEBUG_SYSTRACE))) {
+		return;
+	}
+
+	cur_mask = cpumask_bits(&cur_cpus_halt_mask)[0];
+	snprintf(buf, sizeof(buf), "C|9999|Cpu_Halt_Mask|%d\n", cur_mask);
+	tracing_mark_write(buf);
+
+	cur_mask = cpumask_bits(&cur_cpus_phalt_mask)[0];
+	snprintf(buf, sizeof(buf), "C|9999|Cpu_Partial_Halt_Mask|%d\n", cur_mask);
+	tracing_mark_write(buf);
+
+
+	for_each_present_cpu(cpu) {
+		cur_client_state = per_cpu_ptr(oplus_cur_pause_client, cpu);
+		halt_info = cur_client_state[OPLUS_HALT];
+		halt_info += cur_client_state[OPLUS_PARTIAL_HALT] * SCHED_PARTIAL_HALT_OFFSET;
+		snprintf(buf, sizeof(buf), "C|9999|Cpu%d_Pause_Client|%llu\n", cpu, halt_info);
+		tracing_mark_write(buf);
+	}
+}
+EXPORT_SYMBOL(sa_corectl_systrace_c);
+#endif /* CONFIG_OPLUS_SCHED_HALT_MASK_PRT */
 
 void hwbinder_systrace_c(unsigned int cpu, int flag)
 {
@@ -1277,7 +1321,7 @@ bool im_mali(const char *comm)
 {
 	return !strcmp(comm, "mali-event-hand") ||
 		!strcmp(comm, "mali-mem-purge") || !strcmp(comm, "mali-cpu-comman") ||
-		!strcmp(comm, "mali-compiler");
+		!strcmp(comm, "mali-compiler") || !strcmp(comm, "mali-cmar-backe");
 }
 #endif
 
@@ -1800,30 +1844,26 @@ void sched_setaffinity_tracking(struct task_struct *task, const struct cpumask *
 	}
 }
 
-void android_rvh_sched_setaffinity_handler(void *unused, struct task_struct *p,
-					const struct cpumask *in_mask,
-					int *retval)
+void android_rvh_set_cpus_allowed_by_task_handler(void *unused, const struct cpumask *cpu_valid_mask,
+	const struct cpumask *new_mask, struct task_struct *task, unsigned int *dest_cpu)
 {
 	struct oplus_task_struct *ots;
-	/* nothing to do if the affinity call failed */
-	if (*retval)
-		return;
 
-	ots = get_oplus_task_struct(p);
+	ots = get_oplus_task_struct(task);
 	if (IS_ERR_OR_NULL(ots))
 		return;
 
-	if (cpumask_weight(in_mask) == nr_cpu_ids) {
+	if (cpumask_weight(new_mask) == nr_cpu_ids) {
 		clear_bit(OTS_STATE_SET_AFFINITY, &ots->state);
 		ots->affinity_pid = -1;
 		ots->affinity_tgid = -1;
 		if (unlikely(global_debug_enabled & DEBUG_FTRACE)) {
-			pr_info("clear affinity to task pid=%d comm=%s\n", p->pid, p->comm);
+			pr_info("clear affinity to task pid=%d comm=%s\n", task->pid, task->comm);
 		}
 		return;
 	}
 
-	sched_setaffinity_tracking(p, in_mask);
+	sched_setaffinity_tracking(task, new_mask);
 }
 
 /* TODO: [ALM:7849986] This code should be removed after 2024.09.27 */
