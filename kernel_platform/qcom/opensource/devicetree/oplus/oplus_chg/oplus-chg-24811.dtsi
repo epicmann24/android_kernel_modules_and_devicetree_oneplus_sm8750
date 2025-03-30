@@ -27,7 +27,6 @@
 		oplus,adc_info_name = "855";
 		oplus,topic-update-interval = <5000>;
 		high-temp-scheme;
-		oplus,wait_rerun_bc12;
 
 		oplus,support_usbtemp_protect_v2;
 		oplus_spec,usbtemp_batt_temp_low = <50>;
@@ -695,6 +694,7 @@
 		oplus,gauge_stuck_threshold = <15>;
 		oplus,gauge_stuck_time = <50>;
 
+		oplus_spec,sw_check_full_cnt = <12>;
 		oplus,smooth_switch;
 		oplus,reserve_chg_soc = <2>;
 		oplus,reserve_dis_soc = <2>;
@@ -755,6 +755,9 @@
 						390 420 CURR_LIMIT_7BIT_5_0A 3 1
 						410 430 CURR_LIMIT_7BIT_4_0A 4 2
 						420 440 CURR_LIMIT_7BIT_3_0A 4 3 >;
+
+		oplus,plc_strategy-data = <&buck_simple_strategy &svooc_simple_strategy &vooc_simple_strategy>;
+		oplus,plc_strategy-names = "default", "svooc", "vooc";
 
 		oplus_virtual_vphy: oplus,virtual_vphy {
 			compatible = "oplus,virtual_vphy";
@@ -1051,9 +1054,14 @@
 		qcom,modify-soc-calibration;
 		qcom,sha1_key_index = <1>;
 		qcom,batt_bq28z610;
+		oplus,remove_iterm_taper;
 		oplus,fcc_too_small_check_support;
 		oplus,batt_num = <2>;
 		qcom,gauge_num = <0>;
+		oplus,bq28z610_afi_buf = /bits/ 8 <
+			/* checksum data_len data+ */
+			0xfd 0x04 0xf4 0x46 0xc8 0x00 /* Charge Term Taper Current 200mA */
+			>;
 
 		oplus,ic_type = <OPLUS_CHG_IC_GAUGE>;
 		oplus,ic_index = <0>;
@@ -1715,7 +1723,7 @@
 		oplus,dpdm_switch_ic = <&oplus_adsp_dpdm_switch>;
 
 		oplus,adsp_ufcs_project;
-		oplus,ufcs_boot_time_retry = <12>;
+		oplus,ufcs_boot_time_retry = <10>;
 		oplus,impedance_unit = <&oplus_ufcs_impedance_unit>;
 		oplus,ufcs_need_reset_adapter;
 
@@ -1748,6 +1756,9 @@
 		oplus_spec,ufcs_high_soc = <95>;
 		oplus,ufcs_charge_strategy_soc = <0 20 35 55 75 85 95>;
 		oplus,ufcs_charge_strategy_temp = <0 50 120 160 350 440 510>;
+
+		oplus,plc_strategy-data = <&oplus_ufcs_step_strategy &third_ufcs_simple_strategy>;
+		oplus,plc_strategy-names = "default", "third";
 
 		ufcs_oplus_lcf_strategy {
 			oplus,temp_type = <OPLUS_STRATEGY_USE_SHELL_TEMP>;
@@ -2381,8 +2392,46 @@
 &soc {
 	oplus_chg_plc: oplus,plc_charge {
 		compatible = "oplus,plc_charge";
-		oplus,plc_support = <4>;
 		oplus,plc_soc = <90>;
+		oplus,plc_strategy-data = <&buck_simple_strategy>;
+		oplus,plc_strategy-names = "default";
+
+		oplus_ufcs_step_strategy: oplus_ufcs_step_strategy {
+			oplus,strategy_type = <PLC_STRATEGY_STEP>;
+		};
+
+		third_ufcs_simple_strategy: third_ufcs_simple_strategy {
+			oplus,strategy_type = <PLC_STRATEGY_SIMPLE>;
+			oplus,strategy_data {
+				strategy_curr_ma = <1000 1500>;
+			};
+		};
+
+		pps_simple_strategy: pps_simple_strategy {
+			oplus,strategy_type = <PLC_STRATEGY_SIMPLE>;
+			oplus,strategy_data {
+				strategy_curr_ma = <1000 1500>;
+			};
+		};
+
+		svooc_simple_strategy: svooc_simple_strategy {
+			oplus,strategy_type = <PLC_STRATEGY_SIMPLE>;
+			oplus,strategy_data {
+				strategy_curr_ma = <1000 1500>;
+			};
+		};
+
+		vooc_simple_strategy: vooc_simple_strategy {
+			oplus,strategy_type = <PLC_STRATEGY_SIMPLE>;
+			oplus,strategy_data {
+				strategy_curr_ma = <2000 3000>;
+			};
+		};
+
+
+		buck_simple_strategy: buck_simple_strategy {
+			oplus,strategy_type = <PLC_STRATEGY_SIMPLE>;
+		};
 	};
 };
 

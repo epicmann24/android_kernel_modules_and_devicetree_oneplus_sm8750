@@ -341,7 +341,8 @@ long panel_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	if (!strcmp(ioctl->name, "PANEL_IOCTL_GET_OPLUS_BRIGHTNESS")
 			|| !strcmp(ioctl->name, "PANEL_IOCTL_GET_DIM_ALPHA")
 			|| !strcmp(ioctl->name, "PANEL_IOCTL_GET_DIM_DC_ALPHA")
-			|| !strcmp(ioctl->name, "PANEL_IOCTL_GET_CABC_STATUS")) {
+			|| !strcmp(ioctl->name, "PANEL_IOCTL_GET_CABC_STATUS")
+			|| !strcmp(ioctl->name, "PANEL_IOCTL_GET_DYNAMIC_TE")) {
 		OPLUS_DSI_DEBUG("pid = %d, cmd = %s\n",
 				task_pid_nr(current), ioctl->name);
 	} else {

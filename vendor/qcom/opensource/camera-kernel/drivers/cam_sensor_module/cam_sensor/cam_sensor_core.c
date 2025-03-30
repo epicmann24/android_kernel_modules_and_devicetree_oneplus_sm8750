@@ -491,7 +491,6 @@ static int32_t cam_sensor_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 			delete_request(&i2c_data->streamon_settings);
 			s_ctrl->streamon_count = 0;
 		}
-
 		s_ctrl->streamon_count = s_ctrl->streamon_count + 1;
 		i2c_reg_settings = &i2c_data->streamon_settings;
 		i2c_reg_settings->request_id = 0;
@@ -1270,6 +1269,9 @@ void cam_sensor_shutdown(struct cam_sensor_ctrl_t *s_ctrl)
 	s_ctrl->is_probe_succeed = 0;
 	s_ctrl->last_flush_req = 0;
 	s_ctrl->sensor_state = CAM_SENSOR_INIT;
+#ifdef OPLUS_FEATURE_CAMERA_COMMON
+	s_ctrl->streamon_num = 0;
+#endif
 }
 
 int cam_sensor_match_id(struct cam_sensor_ctrl_t *s_ctrl)
@@ -1677,6 +1679,9 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		s_ctrl->last_flush_req = 0;
 		s_ctrl->last_applied_done_timestamp = 0;
 		s_ctrl->stream_off_on_flush = false;
+#ifdef OPLUS_FEATURE_CAMERA_COMMON
+		s_ctrl->streamon_num = 0;
+#endif
 	}
 		break;
 	case CAM_QUERY_CAP: {
@@ -2309,6 +2314,9 @@ int cam_sensor_apply_settings(struct cam_sensor_ctrl_t *s_ctrl,
 		switch (opcode) {
 		case CAM_SENSOR_PACKET_OPCODE_SENSOR_STREAMON: {
 			i2c_set = &s_ctrl->i2c_data.streamon_settings;
+#ifdef OPLUS_FEATURE_CAMERA_COMMON
+			s_ctrl->streamon_num = s_ctrl->streamon_num + 1;
+#endif
 			break;
 		}
 		case CAM_SENSOR_PACKET_OPCODE_SENSOR_INITIAL_CONFIG: {
@@ -2344,6 +2352,7 @@ int cam_sensor_apply_settings(struct cam_sensor_ctrl_t *s_ctrl,
 #ifdef OPLUS_FEATURE_CAMERA_COMMON
 		case CAM_SENSOR_PACKET_OPCODE_SENSOR_RESOLUTION: {
 			i2c_set = &s_ctrl->i2c_data.resolution_settings;
+			s_ctrl->streamon_num = 0;
 			break;
 		}
 		case CAM_SENSOR_PACKET_OPCODE_SENSOR_QSC: {
@@ -2376,6 +2385,9 @@ int cam_sensor_apply_settings(struct cam_sensor_ctrl_t *s_ctrl,
 #endif
 			list_for_each_entry(i2c_list,
 				&(i2c_set->list_head), list) {
+#ifdef OPLUS_FEATURE_CAMERA_COMMON
+				oplus_sensor_ov_bypass_framedrop(s_ctrl,opcode,i2c_list);
+#endif
 				if (!s_ctrl->hw_no_ops)
 					rc = cam_sensor_i2c_modes_util(
 						&(s_ctrl->io_master_info),

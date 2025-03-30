@@ -189,6 +189,8 @@ struct cam_sensor_ctrl_t {
 	bool                           cam_sensor_init_completed;
 	uint8_t                        cam_sensor_reg_otp[CAM_OEM_OTP_DATA_MAX_LENGTH];
 	uint32_t                       swremosaic_sensor_id;
+	uint32_t                       is_need_framedrop;
+	uint32_t                       streamon_num;
 #endif
 };
 

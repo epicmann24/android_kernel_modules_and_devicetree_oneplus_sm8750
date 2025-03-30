@@ -1182,6 +1182,21 @@ void cam_ext_sensor_driver_get_dt_data(struct cam_sensor_ctrl_t *s_ctrl)
 			CAM_EXT_INFO(CAM_EXT_SENSOR, "swremosaic_sensor_id = 0x%x",
 				s_ctrl->swremosaic_sensor_id);
 		}
+
+		rc = of_property_read_u32(of_node, "is_need_framedrop",
+			&s_ctrl->is_need_framedrop);
+		if (rc)
+		{
+			s_ctrl->is_need_framedrop = 0;
+			CAM_EXT_WARN(CAM_EXT_SENSOR, "get is_need_dropframe failed rc:%d, default %d",
+				rc, s_ctrl->is_need_framedrop);
+		}
+		else
+		{
+			CAM_EXT_INFO(CAM_EXT_SENSOR, "read sensor_setting_id success, value:%d",
+				s_ctrl->is_need_framedrop);
+		}
+
 }
 
 static long cam_ext_sensor_subdev_ioctl(struct v4l2_subdev *sd,

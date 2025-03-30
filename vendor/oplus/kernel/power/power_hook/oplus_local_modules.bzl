@@ -13,7 +13,6 @@ def define_oplus_local_modules():
             "utils/oplus_power_hook_utils.c",
             "alarmtimer_hook/oplus_alarmtimer_hook.c",
             "irq_wakeup_hook/oplus_irq_wakeup_hook.c",
-            "netlink_hook/oplus_netlink_hook.c",
         ]),
 #        conditional_srcs = {
 #            "CONFIG_OPLUS_FEATURE_IRQ_WAKEUP_HOOK": {
@@ -24,7 +23,7 @@ def define_oplus_local_modules():
 #            },
 #        },
         includes = ["."],
-	local_defines = ["OPLUS_FEATURE_POWER_HOOK","CONFIG_OPLUS_FEATURE_IRQ_WAKEUP_HOOK","CONFIG_OPLUS_FEATURE_ALARMTIMER_HOOK","CONFIG_OPLUS_FEATURE_NETLINK_HOOK"],
+	local_defines = ["OPLUS_FEATURE_POWER_HOOK","CONFIG_OPLUS_FEATURE_IRQ_WAKEUP_HOOK","CONFIG_OPLUS_FEATURE_ALARMTIMER_HOOK"],
     )
 
     ddk_copy_to_dist_dir(

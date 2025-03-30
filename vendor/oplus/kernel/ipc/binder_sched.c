@@ -1014,9 +1014,6 @@ static void binder_unset_inherit_ux(struct task_struct *thread_task,
 void android_vh_binder_restore_priority_handler(void *unused,
 	struct binder_transaction *t, struct task_struct *task)
 {
-	if (unlikely(!g_sched_enable))
-		return;
-
 	/* Google commit "d1367b5" caused this priority pass issue on our kernel-5.15 project */
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(5, 15, 0))
 	if (t != NULL) {
@@ -1027,6 +1024,9 @@ void android_vh_binder_restore_priority_handler(void *unused,
 		}
 	}
 #endif
+
+	if (unlikely(!g_sched_enable))
+		return;
 
 	if (!is_task_servicemg(task)) {
 		return;

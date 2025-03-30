@@ -719,12 +719,39 @@ static ssize_t app0_fac_calib_show(struct kobject *kobj, struct kobj_attribute *
 	tmf8806_chip *chip = g_tof8806_sensor_chip;
 	ssize_t ret = -1;
 	char byte[TOF8806_FACTORY_CAL_CMD_SIZE];
+	uint32_t timeout = 500;
+	uint8_t irqs = 0;
 
 	if (chip->tof_core.logLevel & TMF8806_LOG_LEVEL_VERBOSE) {
 		CAM_EXT_INFO(CAM_EXT_TOF, "%s\n", __func__);
 	}
 
 	AMS_MUTEX_LOCK(&chip->lock);
+	ret = tmf8806FactoryCalibration(&chip->tof_core, TMF8806_FACTORY_CALIB_KITERS);
+
+	if (ret == APP_SUCCESS_OK) {
+		delayInMicroseconds(1000000); // needs more then 1 sec.
+		while ( irqs == 0 && timeout-- > 0 )
+		{
+			delayInMicroseconds(10000);
+			irqs = tmf8806GetAndClrInterrupts( &chip->tof_core, TMF8806_INTERRUPT_RESULT );
+		}
+
+		ret = tmf8806ReadFactoryCalibration(&chip->tof_core);
+		if (ret != APP_SUCCESS_OK) {
+			CAM_EXT_ERR(CAM_EXT_TOF, "No factory calibration page \n");
+		}
+		if (timeout == 0) {
+			ret = -1;
+			CAM_EXT_ERR(CAM_EXT_TOF, " calibration timeout \n");
+
+		}
+	}
+
+	if(ret != APP_SUCCESS_OK){
+		return ret;
+	}
+
 	memcpy(byte, &chip->tof_core.factoryCalib, TOF8806_FACTORY_CAL_CMD_SIZE);
 	ret = scnprintf(buf, PAGE_SIZE, "%#hhx %#hhx %#hhx %#hhx %#hhx %#hhx %#hhx %#hhx %#hhx %#hhx %#hhx %#hhx %#hhx %#hhx\n",
 					byte[0], byte[1], byte[2], byte[3], byte[4], byte[5], byte[6],
@@ -754,7 +781,7 @@ static ssize_t distance_thresholds_show(struct kobject *kobj, struct kobj_attrib
 
 	return ret;
 }
-*/
+
 static ssize_t app0_fac_calib_store(struct kobject *kobj, struct kobj_attribute * attr, const char * buf, size_t count)
 {
 	tmf8806_chip *chip = g_tof8806_sensor_chip;
@@ -777,7 +804,7 @@ static ssize_t app0_fac_calib_store(struct kobject *kobj, struct kobj_attribute 
 
 	return (ret != TOF8806_FACTORY_CAL_CMD_SIZE) ? -EINVAL : count;
 }
-/*
+
 static ssize_t app0_state_data_store(struct kobject *kobj, struct kobj_attribute * attr, const char * buf, size_t count)
 {
 	tmf8806_chip *chip = g_tof8806_sensor_chip;
@@ -826,35 +853,23 @@ static ssize_t app0_apply_fac_calib_store(struct kobject *kobj, struct kobj_attr
  {
 	tmf8806_chip *chip = g_tof8806_sensor_chip;
 	int8_t ret;
-	uint32_t timeout = 500;
-	uint8_t irqs = 0;
+	char byte[TOF8806_FACTORY_CAL_CMD_SIZE] = {0};
+
 	if (chip->tof_core.logLevel & TMF8806_LOG_LEVEL_VERBOSE) {
 		CAM_EXT_INFO(CAM_EXT_TOF, "%s\n", __func__);
 	}
 
 	AMS_MUTEX_LOCK(&chip->lock);
-	ret = tmf8806FactoryCalibration(&chip->tof_core, TMF8806_FACTORY_CALIB_KITERS);
+	ret = sscanf(buf, "%hhx %hhx %hhx %hhx %hhx %hhx %hhx %hhx %hhx %hhx %hhx %hhx %hhx %hhx",
+		  &byte[0], &byte[1], &byte[2], &byte[3], &byte[4], &byte[5], &byte[6],
+		  &byte[7], &byte[8], &byte[9], &byte[10], &byte[11], &byte[12], &byte[13]);
 
-	if (ret == APP_SUCCESS_OK) {
-		delayInMicroseconds(1000000); // needs more then 1 sec.
-		while ( irqs == 0 && timeout-- > 0 )
-		{
-			delayInMicroseconds(10000);
-			irqs = tmf8806GetAndClrInterrupts( &chip->tof_core, TMF8806_INTERRUPT_RESULT );
-		}
-
-		ret = tmf8806ReadFactoryCalibration(&chip->tof_core);
-		if (ret != APP_SUCCESS_OK) {
-			CAM_EXT_INFO(CAM_EXT_TOF, "No factory calibration page \n");
-		}
-		if (timeout == 0) {
-			ret = -1;
-		}
+	if (ret == TOF8806_FACTORY_CAL_CMD_SIZE) {
+		tmf8806SetFactoryCalibration(&chip->tof_core, (tmf8806FactoryCalibData *) byte);
 	}
-
 	AMS_MUTEX_UNLOCK(&chip->lock);
 
-	return (ret != BL_SUCCESS_OK) ? -EIO  : count;
+	return (ret != TOF8806_FACTORY_CAL_CMD_SIZE) ? -EINVAL : count;
 }
 /*
 static ssize_t app0_clk_correction_store(struct kobject *kobj, struct kobj_attribute * attr, const char * buf, size_t count)
@@ -1062,7 +1077,7 @@ static OPLUS_ATTR(app0_ctrl_reg,0644, app0_ctrl_reg_show,NULL);
 //static OPLUS_ATTR(app0_temp,0644, app0_temp_show,NULL);
 //static OPLUS_ATTR(app0_diag_state_mask,0644, app0_diag_state_mask_show,NULL);
 //static OPLUS_ATTR(app0_reflectivity_count,0644, app0_reflectivity_count_show,NULL);
-static OPLUS_ATTR(app0_get_fac_calib,0644, app0_fac_calib_show,app0_fac_calib_store);
+static OPLUS_ATTR(app0_get_fac_calib,0644, app0_fac_calib_show,NULL);
 //static OPLUS_ATTR(app0_get_distance,0644, app0_get_distance_show,NULL);
 static OPLUS_ATTR(app0_read_peak_crosstalk,0644, app0_read_peak_crosstalk_show,NULL);
 
