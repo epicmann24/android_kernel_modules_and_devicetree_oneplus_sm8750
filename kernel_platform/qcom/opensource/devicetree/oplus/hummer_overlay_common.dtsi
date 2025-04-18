@@ -44,7 +44,7 @@
     //#ifdef CONFIG_HMBIRD_SCHED
     oplus,hmbird {
         version_type {
-            type = "HMBIRD_OGKI";
+            type = "HMBIRD_GKI";
         };
     };
     //#endif /* CONFIG_HMBIRD_SCHED */
