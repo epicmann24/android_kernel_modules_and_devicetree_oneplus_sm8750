@@ -332,6 +332,10 @@ int oplus_panel_parse_features_config(struct dsi_panel *panel)
 	OPLUS_DSI_INFO("oplus,bl-use-ktz8868-ic-ctrl: %s\n",
 		panel->oplus_panel.bl_ic_ktz8868_used ? "true" : "false");
 
+	panel->oplus_panel.white_point_compensation_enabled = utils->read_bool(utils->data,
+			"oplus,dsi-white-point-compensation-enabled");
+	OPLUS_DSI_INFO("oplus,dsi-white-point-compensation-enabled: %s\n", panel->oplus_panel.white_point_compensation_enabled ? "true" : "false");
+
 	return 0;
 }
 

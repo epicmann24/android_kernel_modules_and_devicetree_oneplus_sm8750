@@ -146,4 +146,5 @@ int oplus_display_panel_get_hbm_max(void *data);
 int oplus_display_panel_set_dc_compensate(void *data);
 int oplus_display_panel_set_mipi_err_check(void *data);
 int oplus_display_panel_get_mipi_err_check(void *data);
+int oplus_display_panel_set_white_point_status(void *data);
 #endif /* _OPLUS_DISPLAY_DEVICE_IOCTL_H_ */

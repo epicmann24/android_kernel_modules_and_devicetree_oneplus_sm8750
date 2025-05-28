@@ -111,6 +111,7 @@ static const struct panel_ioctl_desc panel_ioctls[] = {
 	PANEL_IOCTL_DEF(PANEL_IOCTL_SET_DC_COMPENSATE, oplus_display_panel_set_dc_compensate),
 	PANEL_IOCTL_DEF(PANEL_IOCTL_SET_MIPI_ERR_CHECK, oplus_display_panel_set_mipi_err_check),
 	PANEL_IOCTL_DEF(PANEL_IOCTL_GET_MIPI_ERR_CHECK, oplus_display_panel_get_mipi_err_check),
+	PANEL_IOCTL_DEF(PANEL_IOCTL_SET_WHITE_POINT_FLAG, oplus_display_panel_set_white_point_status),
 };
 
 int oplus_display_fix_apollo_level(void)

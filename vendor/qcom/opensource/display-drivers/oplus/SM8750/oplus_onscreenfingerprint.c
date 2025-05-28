@@ -2157,6 +2157,7 @@ int oplus_ofp_lhbm_handle_kick(void *sde_encoder_virt) {
 		return -EINVAL;
 	}
 
+	OFP_DEBUG("oplus_ofp_lhbm_handle_kick oplus_ofp_lhbm_handle\n");
 	oplus_ofp_lhbm_handle(display);
 	return 0;
 }
@@ -2208,6 +2209,7 @@ int oplus_ofp_lhbm_handle(void *dsi_display)
 
 	OPLUS_OFP_TRACE_BEGIN("oplus_ofp_lhbm_handle");
 
+	mutex_lock(&oplus_ofp_lock);
 	mutex_lock(&oplus_ofp_lhbm_lock);
 
 	bl_level = display->panel->bl_config.bl_level;
@@ -2226,6 +2228,7 @@ int oplus_ofp_lhbm_handle(void *dsi_display)
 	}
 
 	mutex_unlock(&oplus_ofp_lhbm_lock);
+	mutex_unlock(&oplus_ofp_lock);
 
 	OPLUS_OFP_TRACE_END("oplus_ofp_lhbm_handle");
 

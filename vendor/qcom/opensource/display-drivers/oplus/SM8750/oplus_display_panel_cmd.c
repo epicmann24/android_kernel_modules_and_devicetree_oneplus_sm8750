@@ -259,6 +259,8 @@ const char *cmd_set_prop_map[DSI_CMD_SET_MAX] = {
 	"oplus,dsi-panel-gamma-compensation-page0-command",
 	"oplus,dsi-panel-gamma-compensation-page1-command",
 	"oplus,dsi-panel-gamma-compensation-command",
+	"oplus,dsi-panel-white-point-compensation-off",
+	"oplus,dsi-panel-white-point-compensation-on",
 #endif /* OPLUS_FEATURE_DISPLAY */
 };
 
@@ -498,6 +500,8 @@ const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
 	"oplus,dsi-panel-gamma-compensation-page0-command-state",
 	"oplus,dsi-panel-gamma-compensation-page1-command-state",
 	"oplus,dsi-panel-gamma-compensation-command-state",
+	"oplus,dsi-panel-white-point-compensation-off-state",
+	"oplus,dsi-panel-white-point-compensation-on-state",
 #endif /* OPLUS_FEATURE_DISPLAY */
 };
 

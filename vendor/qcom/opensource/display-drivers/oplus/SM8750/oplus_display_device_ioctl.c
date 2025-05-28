@@ -1991,3 +1991,49 @@ int oplus_display_panel_get_mipi_err_check(void *data)
 
 	return rc;
 }
+int oplus_display_panel_set_white_point_status(void *data)
+{
+	int rc = 0;
+	uint32_t *flag = data;
+
+	struct dsi_display *display = get_main_display();
+	struct dsi_panel *panel = NULL;
+	u32 cmd_index = 0;
+
+	if (!display || !display->panel) {
+		OPLUS_DSI_ERR("Invalid display or panel\n");
+		rc = -EINVAL;
+		return rc;
+	}
+	panel = display->panel;
+
+	if (!panel->oplus_panel.white_point_compensation_enabled) {
+		OPLUS_DSI_WARN("This project don't support white point compensation\n");
+		rc = -EFAULT;
+		return rc;
+	}
+
+	if(display->panel->power_mode != SDE_MODE_DPMS_ON) {
+		OPLUS_DSI_WARN("display panel is not on, data=[%s]\n", (char *)data);
+		rc = -EFAULT;
+		return rc;
+	}
+
+	if (*flag > 1) {
+		OPLUS_DSI_ERR("Unknow switch status: %d\n", *flag);
+		rc = -EINVAL;
+		return rc;
+	}
+
+	OPLUS_DSI_INFO("Set white point compensation state: %d, data=[%s]\n", *flag, (char *)data);
+	mutex_lock(&display->display_lock);
+	mutex_lock(&panel->panel_lock);
+
+	cmd_index = DSI_CMD_REDUCE_WHITE_POINT_OFF + *flag;
+	rc = dsi_panel_tx_cmd_set(panel, cmd_index, false);
+
+	mutex_unlock(&panel->panel_lock);
+	mutex_unlock(&display->display_lock);
+
+	return rc;
+}

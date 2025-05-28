@@ -213,6 +213,7 @@ struct oplus_panel {
 	u32 osc_clk_mode0_rate;
 	u32 osc_clk_mode1_rate;
 	bool is_apl_read_support;
+	bool white_point_compensation_enabled;
 
 	/* ---------------- apollo variate ---------------- */
 	bool is_switching;
