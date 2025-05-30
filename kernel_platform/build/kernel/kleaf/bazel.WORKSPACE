@@ -16,55 +16,6 @@ load("//build/kernel/kleaf:workspace.bzl", "define_kleaf_workspace")
 
 define_kleaf_workspace()
 
-# Tell Bazel about all of our “external” directories
-local_repository(
-    name = "rules_cc",
-    path = "kernel_platform/external/bazelbuild-rules_cc",
-)
-local_repository(
-    name = "bazel_skylib",
-    path = "kernel_platform/external/bazel-skylib",
-)
-local_repository(
-    name = "bazelbuild-platforms",
-    path = "kernel_platform/external/bazelbuild-platforms",
-)
-local_repository(
-    name = "bazelbuild-apple_support",
-    path = "kernel_platform/external/bazelbuild-apple_support",
-)
-local_repository(
-    name = "bazelbuild-bazel-central-registry",
-    path = "kernel_platform/external/bazelbuild-bazel-central-registry",
-)
-local_repository(
-    name = "bazelbuild-rules_java",
-    path = "kernel_platform/external/bazelbuild-rules_java",
-)
-local_repository(
-    name = "bazelbuild-rules_license",
-    path = "kernel_platform/external/bazelbuild-rules_license",
-)
-local_repository(
-    name = "bazelbuild-rules_pkg",
-    path = "kernel_platform/external/bazelbuild-rules_pkg",
-)
-local_repository(
-    name = "bazelbuild-rules_python",
-    path = "kernel_platform/external/bazelbuild-rules_python",
-)
-local_repository(
-    name = "dtc",
-    path = "kernel_platform/external/dtc",
-)
-
-# And of course your local toolchain and skylib
-local_repository(
-    name = "kleaf_clang_toolchain",
-    path = "kernel_platform/prebuilts/clang/host/linux-x86",
-)
-
-
 # Optional epilog for analysis testing.
 load("//build/kernel/kleaf:workspace_epilog.bzl", "define_kleaf_workspace_epilog")
 define_kleaf_workspace_epilog()
