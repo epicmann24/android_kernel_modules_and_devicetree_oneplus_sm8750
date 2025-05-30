@@ -19,3 +19,15 @@ define_kleaf_workspace()
 # Optional epilog for analysis testing.
 load("//build/kernel/kleaf:workspace_epilog.bzl", "define_kleaf_workspace_epilog")
 define_kleaf_workspace_epilog()
+
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "local_repository")
+
+local_repository(
+    name = "kleaf_clang_toolchain",
+    path = "kernel_platform/prebuilts/clang/host/linux-x86",
+)
+
+local_repository(
+    name = "rules_cc",
+    path = "kernel_platform/external/bazelbuild-rules_cc",
+)
