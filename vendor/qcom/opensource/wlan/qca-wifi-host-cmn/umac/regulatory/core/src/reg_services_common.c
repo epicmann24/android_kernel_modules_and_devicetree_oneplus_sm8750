@@ -51,9 +51,9 @@
 const struct chan_map *channel_map;
 uint8_t g_reg_max_5g_chan_num;
 
-#define DISCARD_DFS_FOR_P2P_GO_AND_SAP 3
+#define DISCARD_DFS_FOR_P2P_GO_AND_AP 3
 #define DISCARD_DFS_FOR_P2P_GO 2
-#define DISCARD_DFS_FOR_SAP 1
+#define DISCARD_DFS_FOR_AP 1
 
 #ifdef WLAN_FEATURE_11BE
 static bool reg_is_chan_bit_punctured(uint16_t input_punc_bitmap,
@@ -3934,11 +3934,15 @@ reg_update_list_for_dfs_channel(struct wlan_objmgr_pdev *pdev,
 		return;
 	}
 
-	if (!wlan_reg_is_dfs_for_freq(pdev, res_msg[chan_enum].freq))
+	if (!WLAN_REG_IS_5GHZ_CH_FREQ(res_msg[chan_enum].freq))
+		return;
+
+	if (!wlan_reg_is_dfs_for_freq(pdev, res_msg[chan_enum].freq) &&
+	    !wlan_reg_is_freq_indoor(pdev, res_msg[chan_enum].freq))
 		return;
 
 	if (!dfs_master_capable ||
-	     dfs_discard_for_mode == DISCARD_DFS_FOR_P2P_GO_AND_SAP) {
+	     dfs_discard_for_mode == DISCARD_DFS_FOR_P2P_GO_AND_AP) {
 		res_msg[chan_enum].iface_mode_mask &= ~(iface_mode);
 		if (!res_msg[chan_enum].iface_mode_mask)
 			reg_remove_freq(res_msg, chan_enum);
@@ -3947,7 +3951,7 @@ reg_update_list_for_dfs_channel(struct wlan_objmgr_pdev *pdev,
 		res_msg[chan_enum].iface_mode_mask &= ~(iface_mode);
 		if (!res_msg[chan_enum].iface_mode_mask)
 			reg_remove_freq(res_msg, chan_enum);
-	} else if (dfs_discard_for_mode == DISCARD_DFS_FOR_SAP &&
+	} else if (dfs_discard_for_mode == DISCARD_DFS_FOR_AP &&
 		   (iface_mode & (1 << IFTYPE_AP))) {
 		res_msg[chan_enum].iface_mode_mask &= ~(iface_mode);
 		if (!res_msg[chan_enum].iface_mode_mask)

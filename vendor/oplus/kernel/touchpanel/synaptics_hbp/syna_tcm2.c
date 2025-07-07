@@ -2378,7 +2378,11 @@ static int syna_dev_early_suspend(struct device *dev)
 		return -EINVAL;
 	};
 
-	tcm->touch_and_hold = 1;
+	if (tcm->syna_screenon_fingerprint_mode) {
+		tcm->touch_and_hold = 1 << FINGERPIRNT_SCREEN_OFF_ENABLE_BIT | 1 << FINGERPIRNT_SCREEN_ON_ENABLE_BIT;
+	} else {
+		tcm->touch_and_hold = 1;
+	}
 	syna_dev_update_lpwg_status(tcm);
 	syna_dev_set_fingerprint_enable(tcm, tcm->touch_and_hold);
 
@@ -3215,6 +3219,9 @@ static int init_chip_dts(struct device *dev, void *chip_data)
 
 	tcm->snr_read_support = of_property_read_bool(np, "snr_read_support");
 	TP_INFO(tcm->tp_index, "stats_upload_support = %d \n", tcm->snr_read_support);
+
+	tcm->syna_screenon_fingerprint_mode = of_property_read_bool(np, "syna_screenon_fingerprint_mode");
+	TP_INFO(tcm->tp_index, "syna_screenon_fingerprint_mode = %d \n", tcm->syna_screenon_fingerprint_mode);
 
 	/* S3910_PANEL7 */
 	init_panel_config(dev, tcm);
