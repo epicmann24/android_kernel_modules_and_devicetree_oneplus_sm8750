@@ -3,6 +3,7 @@
 
 #include <oplus_mms.h>
 #include "oplus_sili.h"
+#include <oplus_sec.h>
 
 #define GAUGE_IC_NUM_MAX 2
 #define CALIB_TIME_STR_LEN 32
@@ -72,6 +73,8 @@ struct oplus_mms_gauge {
 	struct ddrc_temp_curves ddrc_curve;
 	struct ddrc_temp_curves ddrc_curve_sub;
 	int ddrc_num;
+
+	struct oplus_sec *sec_chip;
 
 	int device_type;
 	int device_type_for_vooc;

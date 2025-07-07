@@ -257,6 +257,13 @@ struct oplus_monitor {
 	bool ufcs_charging;
 	u32 ufcs_adapter_id;
 	bool ufcs_oplus_adapter;
+	int ufcs_emark_power;
+	int ufcs_adapter_power;
+
+	u32 pre_ufcs_adapter_id;
+	bool pre_ufcs_oplus_adapter;
+	int pre_ufcs_emark_power;
+	int pre_ufcs_adapter_power;
 
 	/* plc */
 	int plc_status;
