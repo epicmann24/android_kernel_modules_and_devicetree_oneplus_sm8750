@@ -37,6 +37,7 @@
 #include <linux/ktime.h>
 #include <linux/sched/clock.h>
 #include "gauge/oplus_gauge_common.h"
+#include <oplus_sec.h>
 
 #ifndef CONFIG_OPLUS_CHARGER_MTK
 #include <linux/soc/qcom/smem.h>
@@ -1072,6 +1073,130 @@ int oplus_gauge_get_battinfo_first_usage_date(struct oplus_mms *topic, char *buf
 	return rc;
 }
 
+#define OPLUS_BATTSOH_INFO_DATE_SIZE 128
+int oplus_gauge_get_batt_sn(struct oplus_mms *topic, char *buff, int size_buffer)
+{
+	int rc = 0;
+	struct oplus_mms_gauge *chip;
+	struct oplus_chg_ic_dev *ic;
+	char buff_get[OPLUS_BATTSOH_INFO_DATE_SIZE] = {"\0"};
+	int i;
+	int len = 0;
+
+	if (topic == NULL) {
+		chg_err("topic is NULL");
+		return 0;
+	}
+
+	chip = oplus_mms_get_drvdata(topic);
+	if (!chip || !buff)
+		return -EINVAL;
+
+	if (strcmp("gauge", topic->desc->name) == 0) {
+		for (i = 0; i < chip->child_num; i++) {
+			ic = chip->child_list[i].ic_dev;
+			rc = oplus_chg_ic_func(ic,
+				OPLUS_IC_FUNC_GAUGE_GET_BATT_IC_SN, buff_get, size_buffer);
+			if (rc < 0) {
+				chg_err("gauge[%d](%s): can't get batt BATT_IC_SN, rc=%d\n",
+					i, ic->manu_name, rc);
+				continue;
+			}
+			len = sprintf(buff, "%s", buff_get);
+		}
+	}
+	return rc;
+}
+
+int oplus_gauge_get_historic_soh_date(struct oplus_mms *topic, int *buff, int size_buffer)
+{
+	int rc = 0;
+	struct oplus_mms_gauge *chip;
+	struct oplus_chg_ic_dev *ic;
+	int buff_get[OPLUS_BATTSOH_INFO_DATE_SIZE] = {0};
+	int i;
+
+	if (topic == NULL) {
+		chg_err("topic is NULL");
+		return 0;
+	}
+
+	chip = oplus_mms_get_drvdata(topic);
+	if (!chip || !buff)
+		return -EINVAL;
+
+	if (strcmp("gauge", topic->desc->name) == 0) {
+		for (i = 0; i < chip->child_num; i++) {
+			ic = chip->child_list[i].ic_dev;
+			rc = oplus_chg_ic_func(ic,
+				OPLUS_IC_FUNC_GAUGE_GET_BATT_HISTSOH_DATA, buff_get, size_buffer);
+			if (rc < 0) {
+				chg_err("gauge[%d](%s): can't get batt BATT_IC_SN, rc=%d\n",
+					i, ic->manu_name, rc);
+				continue;
+			}
+			memcpy(buff, buff_get, size_buffer);
+		}
+	}
+	return rc;
+}
+
+int oplus_set_histrioc_soh_date(struct oplus_mms *topic, const int *buff)
+{
+	int rc = 0;
+	struct oplus_mms_gauge *chip;
+	struct oplus_chg_ic_dev *ic;
+	int i;
+
+	if (topic == NULL) {
+		chg_err("topic is NULL");
+		return -ENODEV;
+	}
+	chip = oplus_mms_get_drvdata(topic);
+	if (!chip || !buff)
+		return -EINVAL;
+
+	if (strcmp("gauge", topic->desc->name) == 0) {
+		for (i = 0; i < chip->child_num; i++) {
+			ic = chip->child_list[i].ic_dev;
+			rc = oplus_chg_ic_func(ic, OPLUS_IC_FUNC_GAUGE_SET_BATT_HISTSOH_DATA, buff);
+			if (rc < 0 && rc != -ENOTSUPP) {
+				chg_err("gauge[%d](%s): can't set BATT_HISTSOH_DATA, rc=%d\n", i, ic->manu_name, rc);
+				break;
+			}
+		}
+	}
+	return rc;
+}
+
+int oplus_set_reset_gauge_parms(struct oplus_mms *topic, const int *buff)
+{
+	int rc = 0;
+	struct oplus_mms_gauge *chip;
+	struct oplus_chg_ic_dev *ic;
+	int i;
+
+	if (topic == NULL) {
+		chg_err("topic is NULL");
+		return -ENODEV;
+	}
+	chip = oplus_mms_get_drvdata(topic);
+	if (!chip || !buff)
+		return -EINVAL;
+
+	if (strcmp("gauge", topic->desc->name) == 0) {
+		for (i = 0; i < chip->child_num; i++) {
+			ic = chip->child_list[i].ic_dev;
+			rc = oplus_chg_ic_func(ic, OPLUS_IC_FUNC_GAUGE_SET_RESET_GAUGE_DATE, buff);
+			if (rc < 0 && rc != -ENOTSUPP) {
+				chg_err("gauge[%d](%s): can't set RESET_GAUGE_DATE, rc=%d\n", i, ic->manu_name, rc);
+				break;
+			}
+		}
+	}
+	return rc;
+}
+
 int oplus_gauge_set_battinfo_first_usage_date(struct oplus_mms *topic, const char *buff)
 {
 	int rc = 0;
@@ -1935,6 +2060,363 @@ int oplus_gauge_set_seal_flag(struct oplus_mms *topic, int seal_flag)
 			if (rc < 0 && rc != -ENOTSUPP) {
 				chg_err("gauge[%d](%s): can't set seal flag, rc=%d\n", i, ic->manu_name, rc);
 			}
+			break;
+		}
+	}
+
+	return rc;
+}
+
+int oplus_gauge_sec_get_romid(struct oplus_mms *topic, uint8_t *romid, int *len)
+{
+	int rc = 0;
+	int i;
+	struct oplus_mms_gauge *chip;
+	struct oplus_chg_ic_dev *ic;
+
+	if (topic == NULL) {
+		chg_err("topic is NULL");
+		return -ENODEV;
+	}
+
+	chip = oplus_mms_get_drvdata(topic);
+	if (!chip)
+		return -EINVAL;
+	if (topic == chip->gauge_topic) {
+		for (i = 0; i < chip->child_num; i++) {
+			ic = chip->child_list[i].ic_dev;
+			rc = oplus_chg_ic_func(ic, OPLUS_IC_FUNC_GAUGE_SEC_GET_ROMID, romid, len);
+			if (rc == -ENOTSUPP)
+				continue;
+			if (rc < 0)
+				chg_err("gauge[%d](%s): sec can't get romid, rc=%d\n", i, ic->manu_name, rc);
+			break;
+		}
+	} else {
+		for (i = 0; i < chip->child_num; i++) {
+			if (topic != chip->gauge_topic_parallel[i])
+				continue;
+			ic = chip->gauge_ic_comb[i];
+			rc = oplus_chg_ic_func(ic, OPLUS_IC_FUNC_GAUGE_SEC_GET_ROMID, romid, len);
+			if (rc == -ENOTSUPP)
+				continue;
+			if (rc < 0)
+				chg_err("gauge[%d](%s): sec can't get romid, rc=%d\n", i, ic->manu_name, rc);
+			break;
+		}
+	}
+
+	return rc;
+}
+
+int oplus_gauge_sec_write_page(struct oplus_mms *topic, int page_id, uint8_t *data, int len)
+{
+	int rc = 0;
+	int i;
+	struct oplus_mms_gauge *chip;
+	struct oplus_chg_ic_dev *ic;
+
+	if (topic == NULL) {
+		chg_err("topic is NULL");
+		return -ENODEV;
+	}
+
+	chip = oplus_mms_get_drvdata(topic);
+	if (!chip)
+		return -EINVAL;
+
+	if (topic == chip->gauge_topic) {
+		for (i = 0; i < chip->child_num; i++) {
+			ic = chip->child_list[i].ic_dev;
+			rc = oplus_chg_ic_func(ic,
+				OPLUS_IC_FUNC_GAUGE_SEC_WRITE_PAGE, page_id, data, len);
+			if (rc == -ENOTSUPP)
+				continue;
+			if (rc < 0)
+				chg_err("gauge[%d](%s): sec can't write page, rc=%d\n", i, ic->manu_name, rc);
+			break;
+		}
+	} else {
+		for (i = 0; i < chip->child_num; i++) {
+			if (topic != chip->gauge_topic_parallel[i])
+				continue;
+			ic = chip->gauge_ic_comb[i];
+			rc = oplus_chg_ic_func(ic,
+				OPLUS_IC_FUNC_GAUGE_SEC_WRITE_PAGE, page_id, data, len);
+			if (rc == -ENOTSUPP)
+				continue;
+			if (rc < 0)
+				chg_err("gauge[%d](%s): sec can't write page, rc=%d\n", i, ic->manu_name, rc);
+			break;
+		}
+	}
+
+	return rc;
+}
+
+int oplus_gauge_sec_read_page(struct oplus_mms *topic, int page_id, uint8_t *data, int *len)
+{
+	int rc = 0;
+	int i;
+	struct oplus_mms_gauge *chip;
+	struct oplus_chg_ic_dev *ic;
+
+	if (topic == NULL) {
+		chg_err("topic is NULL");
+		return -ENODEV;
+	}
+
+	chip = oplus_mms_get_drvdata(topic);
+	if (!chip)
+		return -EINVAL;
+
+	if (topic == chip->gauge_topic) {
+		for (i = 0; i < chip->child_num; i++) {
+			ic = chip->child_list[i].ic_dev;
+			rc = oplus_chg_ic_func(ic,
+				OPLUS_IC_FUNC_GAUGE_SEC_READ_PAGE, page_id, data, len);
+			if (rc == -ENOTSUPP)
+				continue;
+			if (rc < 0)
+				chg_err("gauge[%d](%s): sec can't read page, rc=%d\n", i, ic->manu_name, rc);
+			break;
+		}
+	} else {
+		for (i = 0; i < chip->child_num; i++) {
+			if (topic != chip->gauge_topic_parallel[i])
+				continue;
+			ic = chip->gauge_ic_comb[i];
+			rc = oplus_chg_ic_func(ic,
+				OPLUS_IC_FUNC_GAUGE_SEC_READ_PAGE, page_id, data, len);
+			if (rc == -ENOTSUPP)
+				continue;
+			if (rc < 0)
+				chg_err("gauge[%d](%s): sec can't read page, rc=%d\n", i, ic->manu_name, rc);
+			break;
+		}
+	}
+
+	return rc;
+}
+
+int oplus_gauge_sec_ecdsa(struct oplus_mms *topic, bool *val)
+{
+	int rc = 0;
+	int i;
+	struct oplus_mms_gauge *chip;
+	struct oplus_chg_ic_dev *ic;
+
+	if (topic == NULL) {
+		chg_err("topic is NULL");
+		return -ENODEV;
+	}
+
+	chip = oplus_mms_get_drvdata(topic);
+	if (!chip)
+		return -EINVAL;
+
+	if (topic == chip->gauge_topic) {
+		for (i = 0; i < chip->child_num; i++) {
+			ic = chip->child_list[i].ic_dev;
+			rc = oplus_chg_ic_func(ic,
+				OPLUS_IC_FUNC_GAUGE_SEC_ECDSA, val);
+			if (rc == -ENOTSUPP)
+				continue;
+			if (rc < 0 && rc != -ENOTSUPP)
+				chg_err("gauge[%d](%s): sec ecdsa fail, rc=%d\n", i, ic->manu_name, rc);
+			break;
+		}
+	} else {
+		for (i = 0; i < chip->child_num; i++) {
+			if (topic != chip->gauge_topic_parallel[i])
+				continue;
+			ic = chip->gauge_ic_comb[i];
+			rc = oplus_chg_ic_func(ic,
+				OPLUS_IC_FUNC_GAUGE_SEC_ECDSA, val);
+			if (rc == -ENOTSUPP)
+				continue;
+			if (rc < 0 && rc != -ENOTSUPP)
+				chg_err("gauge[%d](%s): sec ecdsa fail, rc=%d\n", i, ic->manu_name, rc);
+			break;
+		}
+	}
+
+	return rc;
+}
+
+int oplus_gauge_sec_ecw(struct oplus_mms *topic, bool *val)
+{
+	int rc = 0;
+	int i;
+	struct oplus_mms_gauge *chip;
+	struct oplus_chg_ic_dev *ic;
+
+	if (topic == NULL) {
+		chg_err("topic is NULL");
+		return -ENODEV;
+	}
+
+	chip = oplus_mms_get_drvdata(topic);
+	if (!chip)
+		return -EINVAL;
+
+	if (topic == chip->gauge_topic) {
+		for (i = 0; i < chip->child_num; i++) {
+			ic = chip->child_list[i].ic_dev;
+			rc = oplus_chg_ic_func(ic,
+				OPLUS_IC_FUNC_GAUGE_SEC_ECW, val);
+			if (rc == -ENOTSUPP)
+				continue;
+			if (rc < 0)
+				chg_err("gauge[%d](%s): sec ecw fail, rc=%d\n", i, ic->manu_name, rc);
+			break;
+		}
+	} else {
+		for (i = 0; i < chip->child_num; i++) {
+			if (topic != chip->gauge_topic_parallel[i])
+				continue;
+			ic = chip->gauge_ic_comb[i];
+			rc = oplus_chg_ic_func(ic,
+				OPLUS_IC_FUNC_GAUGE_SEC_ECW, val);
+			if (rc == -ENOTSUPP)
+				continue;
+			if (rc < 0)
+				chg_err("gauge[%d](%s): sec ecw fail, rc=%d\n", i, ic->manu_name, rc);
+			break;
+		}
+	}
+
+	return rc;
+}
+
+int oplus_gauge_sec_shutdown(struct oplus_mms *topic, bool *val)
+{
+	int rc = 0;
+	int i;
+	struct oplus_mms_gauge *chip;
+	struct oplus_chg_ic_dev *ic;
+
+	if (topic == NULL) {
+		chg_err("topic is NULL");
+		return -ENODEV;
+	}
+
+	chip = oplus_mms_get_drvdata(topic);
+	if (!chip)
+		return -EINVAL;
+
+	if (topic == chip->gauge_topic) {
+		for (i = 0; i < chip->child_num; i++) {
+			ic = chip->child_list[i].ic_dev;
+			rc = oplus_chg_ic_func(ic,
+				OPLUS_IC_FUNC_GAUGE_SEC_SHUTDOWN, val);
+			if (rc == -ENOTSUPP)
+				continue;
+			if (rc < 0)
+				chg_err("gauge[%d](%s): sec shutdown fail, rc=%d\n", i, ic->manu_name, rc);
+			break;
+		}
+	} else {
+		for (i = 0; i < chip->child_num; i++) {
+			if (topic != chip->gauge_topic_parallel[i])
+				continue;
+			ic = chip->gauge_ic_comb[i];
+			rc = oplus_chg_ic_func(ic,
+				OPLUS_IC_FUNC_GAUGE_SEC_SHUTDOWN, val);
+			if (rc == -ENOTSUPP)
+				continue;
+			if (rc < 0)
+				chg_err("gauge[%d](%s): sec shutdown fail, rc=%d\n", i, ic->manu_name, rc);
+			break;
+		}
+	}
+
+	return rc;
+}
+
+int oplus_gauge_sec_set_prikey(struct oplus_mms *topic, int index, uint8_t *prikey, int len)
+{
+	int rc = 0;
+	int i;
+	struct oplus_mms_gauge *chip;
+	struct oplus_chg_ic_dev *ic;
+
+	if (topic == NULL) {
+		chg_err("topic is NULL");
+		return -ENODEV;
+	}
+
+	chip = oplus_mms_get_drvdata(topic);
+	if (!chip)
+		return -EINVAL;
+
+	if (topic == chip->gauge_topic) {
+		for (i = 0; i < chip->child_num; i++) {
+			ic = chip->child_list[i].ic_dev;
+			rc = oplus_chg_ic_func(ic,
+				OPLUS_IC_FUNC_GAUGE_SEC_SET_PRIKEY, index, prikey, len);
+			if (rc == -ENOTSUPP)
+				continue;
+			if (rc < 0)
+				chg_err("gauge[%d](%s): sec set prikey fail, rc=%d\n", i, ic->manu_name, rc);
+			break;
+		}
+	} else {
+		for (i = 0; i < chip->child_num; i++) {
+			if (topic != chip->gauge_topic_parallel[i])
+				continue;
+			ic = chip->gauge_ic_comb[i];
+			rc = oplus_chg_ic_func(ic,
+				OPLUS_IC_FUNC_GAUGE_SEC_SET_PRIKEY, index, prikey, len);
+			if (rc == -ENOTSUPP)
+				continue;
+			if (rc < 0)
+				chg_err("gauge[%d](%s): sec set prikey fail, rc=%d\n", i, ic->manu_name, rc);
+			break;
+		}
+	}
+
+	return rc;
+}
+
+int oplus_gauge_sec_get_prikey_index(struct oplus_mms *topic, int *index)
+{
+	int rc = 0;
+	int i;
+	struct oplus_mms_gauge *chip;
+	struct oplus_chg_ic_dev *ic;
+
+	if (topic == NULL) {
+		chg_err("topic is NULL");
+		return -ENODEV;
+	}
+
+	chip = oplus_mms_get_drvdata(topic);
+	if (!chip)
+		return -EINVAL;
+
+	if (topic == chip->gauge_topic) {
+		for (i = 0; i < chip->child_num; i++) {
+			ic = chip->child_list[i].ic_dev;
+			rc = oplus_chg_ic_func(ic,
+				OPLUS_IC_FUNC_GAUGE_SEC_GET_PRIKEY_INDEX, index);
+			if (rc == -ENOTSUPP)
+				continue;
+			if (rc < 0)
+				chg_err("gauge[%d](%s): sec get prikey index fail, rc=%d\n", i, ic->manu_name, rc);
+			break;
+		}
+	} else {
+		for (i = 0; i < chip->child_num; i++) {
+			if (topic != chip->gauge_topic_parallel[i])
+				continue;
+			ic = chip->gauge_ic_comb[i];
+			rc = oplus_chg_ic_func(ic,
+				OPLUS_IC_FUNC_GAUGE_SEC_GET_PRIKEY_INDEX, index);
+			if (rc == -ENOTSUPP)
+				continue;
+			if (rc < 0)
+				chg_err("gauge[%d](%s): sec get prikey index fail, rc=%d\n", i, ic->manu_name, rc);
 			break;
 		}
 	}
@@ -5328,6 +5810,10 @@ static int oplus_mms_gauge_probe(struct platform_device *pdev)
 		  oplus_mms_gauge_sili_term_volt_effect_check_work);
 	INIT_DELAYED_WORK(&chip->deep_temp_work, oplus_gauge_deep_temp_work);
 
+	chip->sec_chip = oplus_sec_init();
+	if (chip->sec_chip == NULL)
+		chg_err("oplus_sec init error");
+
 	schedule_delayed_work(&chip->hal_gauge_init_work, 0);
 
 	chg_info("probe success\n");
@@ -5346,7 +5832,6 @@ creat_gauge_term_voltage_votable_err:
 creat_gauge_shutdown_voltage_votable_err:
 	destroy_votable(chip->gauge_update_votable);
 create_vote_err:
-	devm_kfree(&pdev->dev, chip);
 	platform_set_drvdata(pdev, NULL);
 	return rc;
 }
@@ -5366,6 +5851,8 @@ static int oplus_mms_gauge_remove(struct platform_device *pdev)
 		if (chip->ddrc_strategy[i] != NULL)
 			oplus_chg_strategy_release(chip->ddrc_strategy[i]);
 	}
+
+	oplus_sec_release(chip->sec_chip);
 
 	oplus_chg_unreg_mutual_notifier(&chip->calib_update_mutual);
 	oplus_chg_unreg_mutual_notifier(&chip->calib_obtain_mutual);

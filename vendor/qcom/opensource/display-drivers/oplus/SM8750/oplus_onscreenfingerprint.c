@@ -73,6 +73,8 @@ struct LCM_setting_table {
 	u8 *para_list;
 };
 
+int oplus_ofp_refresh_flag = 0;
+
 /* a mutex lock used to avoid multiple concurrent invocations */
 static DEFINE_MUTEX(oplus_ofp_lock);
 static DEFINE_MUTEX(oplus_ofp_lhbm_lock);
@@ -82,6 +84,7 @@ static DEFINE_MUTEX(oplus_ofp_lhbm_lock);
 extern bool is_lhbm_panel;
 extern u32 oplus_last_backlight;
 extern const char *cmd_set_prop_map[];
+extern bool g_oplus_send_fps_code;
 
 /* extern functions */
 
@@ -307,11 +310,6 @@ int oplus_ofp_init(void *dsi_panel)
 			}
 		}
 
-		if (oplus_ofp_video_mode_30hz_aod_is_enabled()) {
-			/*Thw ramless panel, follow the system 30hz frame rate to enter AOD, need to asynchronously wait for the frame rate switch to complete */
-			p_oplus_ofp_params->video_mode_aod_on_set_wq = create_singlethread_workqueue("oplus_video_mode_aod_on_set_wq");
-			INIT_WORK(&p_oplus_ofp_params->oplus_video_mode_30hz_aod_on_work, oplus_ofp_video_mode_30hz_aod_on_handler);
-		}
 	}
 
 	/* indicates how many frames cost from aod off cmd sent to normal frame */
@@ -1828,13 +1826,8 @@ static int oplus_ofp_hbm_wait_handle(void *sde_connector, bool hbm_en)
 	OFP_DEBUG("start\n");
 
 	if (oplus_ofp_oled_capacitive_is_enabled() || oplus_ofp_ultrasonic_is_enabled()
-		 || (oplus_ofp_video_mode_aod_fod_is_enabled() && oplus_ofp_local_hbm_is_enabled())) {
+		 || oplus_ofp_video_mode_30hz_aod_is_enabled()) {
 		OFP_DEBUG("no need to handle hbm wait\n");
-		return 0;
-	}
-
-	if (oplus_ofp_video_mode_30hz_aod_is_enabled() && oplus_ofp_get_aod_state()) {
-		OFP_DEBUG("should not set panel hbm if panel is in video mode aod state\n");
 		return 0;
 	}
 
@@ -2052,6 +2045,7 @@ int oplus_ofp_hbm_handle(void *sde_encoder_virt)
 	int rc = 0;
 	uint64_t hbm_enable = 0;
 	unsigned int bl_level = 0;
+	unsigned int refresh_rate = 0;
 	struct sde_encoder_virt *sde_enc = sde_encoder_virt;
 	struct sde_connector *c_conn = NULL;
 	struct dsi_display *display = NULL;
@@ -2097,12 +2091,13 @@ int oplus_ofp_hbm_handle(void *sde_encoder_virt)
 
 	hbm_enable = sde_connector_get_property(c_conn->base.state, CONNECTOR_PROP_HBM_ENABLE);
 	bl_level = display->panel->bl_config.bl_level;
-	OFP_DEBUG("hbm_enable:%llu, bl_level=%u\n", hbm_enable, bl_level);
+	refresh_rate = display->panel->cur_mode->timing.refresh_rate;
+	OFP_DEBUG("hbm_enable:%llu, bl_level=%u refresh_rate=%u\n", hbm_enable, bl_level, refresh_rate);
 
 	if ((!p_oplus_ofp_params->doze_active && (hbm_enable & OPLUS_OFP_PROPERTY_DIM_LAYER
 			|| hbm_enable & OPLUS_OFP_PROPERTY_FINGERPRESS_LAYER) && bl_level)
 				|| (p_oplus_ofp_params->doze_active && (hbm_enable & OPLUS_OFP_PROPERTY_FINGERPRESS_LAYER)
-					&& bl_level)) {
+					&& bl_level && !(oplus_ofp_video_mode_30hz_aod_is_enabled() && (refresh_rate == 30)))) {
 		rc = oplus_ofp_set_panel_hbm(c_conn, true);
 		if (rc) {
 			OFP_ERR("failed to set panel hbm on\n");
@@ -2287,7 +2282,7 @@ int oplus_ofp_panel_hbm_status_update(void *sde_encoder_phys)
 	OFP_DEBUG("start\n");
 
 	if (!(oplus_ofp_optical_new_solution_is_enabled() || oplus_ofp_local_hbm_is_enabled()
-			|| oplus_ofp_video_mode_aod_fod_is_enabled())) {
+			|| oplus_ofp_video_mode_aod_fod_is_enabled() || oplus_ofp_video_mode_30hz_aod_is_enabled())) {
 		OFP_DEBUG("no need to update panel hbm status\n");
 		return 0;
 	}
@@ -2613,10 +2608,10 @@ int oplus_ofp_notify_uiready(void *sde_encoder_phys)
 			p_oplus_ofp_params->notifier_chain_value = OPLUS_OFP_UI_DISAPPEAR;
 		}
 	} else {
-		if ((hbm_enable & OPLUS_OFP_PROPERTY_FINGERPRESS_LAYER) && p_oplus_ofp_params->panel_hbm_status) {
+		if ((hbm_enable & OPLUS_OFP_PROPERTY_FINGERPRESS_LAYER) && oplus_ofp_get_hbm_state()) {
 			/* pressed icon scanning has started and hbm on cmds are also taking effect */
 			p_oplus_ofp_params->notifier_chain_value = OPLUS_OFP_UI_READY;
-		} else if (!(hbm_enable & OPLUS_OFP_PROPERTY_FINGERPRESS_LAYER) || !p_oplus_ofp_params->panel_hbm_status) {
+		} else if (!(hbm_enable & OPLUS_OFP_PROPERTY_FINGERPRESS_LAYER) || !oplus_ofp_get_hbm_state()) {
 			/* the data scanning without pressed icon has started or hbm off cmds are taking effect */
 			p_oplus_ofp_params->notifier_chain_value = OPLUS_OFP_UI_DISAPPEAR;
 		}
@@ -3368,9 +3363,6 @@ int oplus_ofp_power_mode_handle(void *dsi_display, int power_mode)
 						if (rc) {
 							OFP_ERR("[%s] failed to send DSI_CMD_LHBM_PRESSED_ICON_OFF cmds, rc=%d\n", display->name, rc);
 						}
-					} else if (oplus_ofp_video_mode_aod_fod_is_enabled()) {
-						oplus_ofp_hbm_wait_handle(c_conn, false);
-						OFP_DEBUG("video mode aod and fod need to wait hbm handle\n");
 					} else {
 						rc = oplus_ofp_display_cmd_set(display, DSI_CMD_HBM_OFF);
 						if (rc) {
@@ -3427,6 +3419,14 @@ int oplus_ofp_power_mode_handle(void *dsi_display, int power_mode)
 					OFP_INFO("oplus_ofp_wait_data_before_aod_on:%d\n", p_oplus_ofp_params->wait_data_before_aod_on);
 					OPLUS_OFP_TRACE_INT("oplus_ofp_wait_data_before_aod_on", p_oplus_ofp_params->wait_data_before_aod_on);
 				}
+			} else if (oplus_ofp_video_mode_30hz_aod_is_enabled() && !oplus_ofp_get_aod_state()) {
+				/*video mode 30hz aod,avoid screen flickering*/
+				mutex_lock(&display->panel->panel_lock);
+				rc = dsi_panel_set_backlight(display->panel, 0);
+				if (rc) {
+					OFP_ERR("unable to set backlight\n");
+				}
+				mutex_unlock(&display->panel->panel_lock);
 			}
 		}
 		break;
@@ -3479,63 +3479,44 @@ int oplus_ofp_power_mode_handle(void *dsi_display, int power_mode)
 	return rc;
 }
 
-void  oplus_ofp_video_mode_30hz_aod_on_handler(struct work_struct *work_item)
+void oplus_ofp_video_mode_refresh_flag_update(void *dsi_display_mode)
 {
-	int rc = 0;
-	struct dsi_display *display = oplus_display_get_current_display();
-	struct oplus_ofp_params *p_oplus_ofp_params = oplus_ofp_get_params(oplus_ofp_display_id);
+	struct dsi_display_mode *mode = dsi_display_mode;
 
 	OFP_DEBUG("start\n");
-
-	if (!display) {
-		OFP_ERR("Invalid params\n");
+	if (!mode) {
+		OFP_ERR("Invalid input params\n");
 		return;
 	}
 
 	if (!oplus_ofp_video_mode_30hz_aod_is_enabled()) {
-		OFP_DEBUG("The video mode aod and fod are not enabled\n");
-		return;
-	}
-	if (!dsi_panel_initialized(display->panel)) {
-		OFP_ERR("should not handle video mode aod if panel is not initialized\n");
+		OFP_DEBUG("video mode aod and fod are not enabled, no need to flag update\n");
 		return;
 	}
 
-	if (display->panel->power_mode == SDE_MODE_DPMS_OFF) {
-		OFP_INFO("Break aod off handle when panel already power off");
-		return;
+	OPLUS_OFP_TRACE_BEGIN("oplus_ofp_video_mode_refresh_flag_update");
+
+	if (mode->timing.refresh_rate == 30) {
+		oplus_ofp_refresh_flag = OPLUS_OFP_VIDEO_AOD_STATE_READY;
+		g_oplus_send_fps_code = true;
+	} else if (mode->timing.refresh_rate != 30) {
+		oplus_ofp_refresh_flag = OPLUS_OFP_VIDEO_AOD_STATE_BASE;
 	}
 
-	OPLUS_OFP_TRACE_BEGIN("oplus_ofp_video_mode_30hz_aod_on_handler");
+	OPLUS_OFP_TRACE_END("oplus_ofp_video_mode_refresh_flag_update");
 
-	/* aod on */
-	usleep_range(5000, 6000);
-	rc = dsi_panel_set_lp1(display->panel);
-	if (rc) {
-		OFP_ERR("[%s] failed to send DSI_CMD_SET_LP1 cmds, rc=%d\n", display->name, rc);
-	}
-	rc = dsi_panel_set_lp2(display->panel);
-	if (rc) {
-		OFP_ERR("[%s] failed to send DSI_CMD_SET_LP2 cmds, rc=%d\n", display->name, rc);
-	}
-
-	if (p_oplus_ofp_params->aod_light_mode) {
-		rc = oplus_ofp_display_cmd_set(display, DSI_CMD_AOD_LOW_LIGHT_MODE);
-		if (rc) {
-			OFP_ERR("[%s] failed to send DSI_CMD_AOD_LOW_LIGHT_MODE cmds, rc=%d\n", display->name, rc);
-		}
-	}
-	OPLUS_OFP_TRACE_END("oplus_ofp_video_mode_30hz_aod_on_handler");
+	OFP_DEBUG("end\n");
 
 	return;
 }
 
-int oplus_ofp_video_mode_aod_handle(void *dsi_display, void *dsi_display_mode)
+int oplus_ofp_video_mode_aod_handle(void *sde_encoder_virt)
 {
 	int rc = 0;
 	unsigned int refresh_rate = 0;
-	struct dsi_display *display = dsi_display;
-	struct dsi_display_mode *mode = dsi_display_mode;
+	struct sde_encoder_virt *sde_enc = sde_encoder_virt;
+	struct sde_connector *c_conn = NULL;
+	struct dsi_display *display = NULL;
 	struct oplus_ofp_params *p_oplus_ofp_params = oplus_ofp_get_params(oplus_ofp_display_id);
 
 	OFP_DEBUG("start\n");
@@ -3545,8 +3526,26 @@ int oplus_ofp_video_mode_aod_handle(void *dsi_display, void *dsi_display_mode)
 		return 0;
 	}
 
-	if (!display || !display->panel || !mode || !p_oplus_ofp_params) {
-		OFP_ERR("Invalid input params\n");
+	if (!sde_enc || !sde_enc->cur_master || !sde_enc->cur_master->connector || !p_oplus_ofp_params) {
+		OFP_ERR("Invalid sde_enc params\n");
+		return -EINVAL;
+	}
+
+	c_conn = to_sde_connector(sde_enc->cur_master->connector);
+	if (!c_conn) {
+		OFP_ERR("Invalid c_conn params\n");
+		return -EINVAL;
+	}
+
+	if (c_conn->connector_type != DRM_MODE_CONNECTOR_DSI) {
+		OFP_DEBUG("not in dsi mode, should not handle hbm\n");
+		return 0;
+	}
+
+	display = c_conn->display;
+
+	if (!display || !display->panel) {
+		OFP_ERR("Invalid display params\n");
 		return -EINVAL;
 	}
 
@@ -3555,26 +3554,53 @@ int oplus_ofp_video_mode_aod_handle(void *dsi_display, void *dsi_display_mode)
 		return -EFAULT;
 	}
 
-	if (IS_ERR_OR_NULL(p_oplus_ofp_params->video_mode_aod_on_set_wq)
-			|| IS_ERR_OR_NULL(&p_oplus_ofp_params->oplus_video_mode_30hz_aod_on_work)) {
-		OFP_ERR("video mode aod on work queue or work handler is NULL");
-		return -EFAULT;
-	}
-
 	OPLUS_OFP_TRACE_BEGIN("oplus_ofp_video_mode_aod_handle");
 
-	refresh_rate = mode->timing.refresh_rate;
+	refresh_rate = display->panel->cur_mode->timing.refresh_rate;
 
 	/* due to aod sequence requirements, the aod of video mode is bound to 30hz timing */
-	if (!oplus_ofp_get_aod_state() && (refresh_rate == 30)) {
+	if (!oplus_ofp_get_aod_state() && (refresh_rate == 30)
+			&& (oplus_ofp_refresh_flag == OPLUS_OFP_VIDEO_AOD_STATE_READY_END)) {
+		if (oplus_ofp_get_hbm_state()) {
+			if (oplus_ofp_local_hbm_is_enabled()) {
+				rc = oplus_ofp_display_cmd_set(display, DSI_CMD_LHBM_PRESSED_ICON_OFF);
+				if (rc) {
+					OFP_ERR("[%s] failed to send DSI_CMD_LHBM_PRESSED_ICON_OFF cmds, rc=%d\n", display->name, rc);
+				}
+			} else {
+				rc = oplus_ofp_display_cmd_set(display, DSI_CMD_HBM_OFF);
+				if (rc) {
+					OFP_ERR("[%s] failed to send DSI_CMD_HBM_OFF cmds, rc=%d\n", display->name, rc);
+				}
+			}
+		}
 		oplus_ofp_set_aod_state(true);
 		/*set aod on*/
-		queue_work(p_oplus_ofp_params->video_mode_aod_on_set_wq, &p_oplus_ofp_params->oplus_video_mode_30hz_aod_on_work);
+		rc = dsi_panel_set_lp1(display->panel);
+		if (rc) {
+			OFP_ERR("[%s] failed to send DSI_CMD_SET_LP1 cmds, rc=%d\n", display->name, rc);
+		}
+
+		if (p_oplus_ofp_params->aod_light_mode) {
+			rc = oplus_ofp_display_cmd_set(display, DSI_CMD_AOD_LOW_LIGHT_MODE);
+			if (rc) {
+				OFP_ERR("[%s] failed to send DSI_CMD_AOD_LOW_LIGHT_MODE cmds, rc=%d\n", display->name, rc);
+			}
+		}
+		oplus_ofp_refresh_flag = OPLUS_OFP_VIDEO_AOD_STATE_BASE;
 	} else if (oplus_ofp_get_aod_state() && (refresh_rate != 30)) {
+		g_oplus_send_fps_code = true;
 		rc = oplus_ofp_aod_off_handle(display);
 		if (rc) {
 			OFP_ERR("[%s] failed to handle aod off, rc=%d\n", display->name, rc);
 		}
+	}
+
+	/*Video mode AOD hardware timing requirements: When entering the AOD state, the frame rate needs to be switched
+	to 30hz at the Nth frame, and the AOD on register needs to be sent at the N+1th frame */
+	OFP_DEBUG("oplus_ofp_refresh_flag = %d\n", oplus_ofp_refresh_flag);
+	if (oplus_ofp_refresh_flag == OPLUS_OFP_VIDEO_AOD_STATE_READY) {
+		oplus_ofp_refresh_flag = OPLUS_OFP_VIDEO_AOD_STATE_READY_END;
 	}
 
 	OPLUS_OFP_TRACE_END("oplus_ofp_video_mode_aod_handle");
@@ -3583,6 +3609,7 @@ int oplus_ofp_video_mode_aod_handle(void *dsi_display, void *dsi_display_mode)
 
 	return rc;
 }
+
 
 void oplus_ofp_aod_off_set_work_handler(struct work_struct *work_item)
 {
@@ -3843,10 +3870,12 @@ int oplus_ofp_aod_off_backlight_recovery(void *sde_encoder_virt)
 	if (last_aod_layer_status && !new_aod_layer_status) {
 		OFP_INFO("recovery backlight level = %d after aod layer disappear\n", display->panel->bl_config.bl_level);
 		mutex_lock(&display->panel->panel_lock);
+		display->panel->oplus_panel.aod_backlight_async = true;
 		rc = dsi_panel_set_backlight(display->panel, display->panel->bl_config.bl_level);
 		if (rc) {
 			OFP_ERR("unable to set backlight\n");
 		}
+		display->panel->oplus_panel.aod_backlight_async = false;
 		mutex_unlock(&display->panel->panel_lock);
 	}
 

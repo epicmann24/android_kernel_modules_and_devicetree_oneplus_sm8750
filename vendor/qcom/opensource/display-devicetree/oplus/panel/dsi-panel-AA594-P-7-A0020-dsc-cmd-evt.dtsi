@@ -25,8 +25,8 @@
 		qcom,mdss-dsi-reset-sequence = <1 10>, <0 5>, <1 25>;
 		qcom,mdss-dsi-te-pin-select = <1>;
 		qcom,mdss-dsi-te-dcs-command = <1>;
-		qcom,mdss-pan-physical-width-dimension = <71>;
-		qcom,mdss-pan-physical-height-dimension = <157>;
+		qcom,mdss-pan-physical-width-dimension = <67>;
+		qcom,mdss-pan-physical-height-dimension = <146>;
 		qcom,mdss-dsi-init-delay-us = <1000>;
 		qcom,mdss-dsi-te-check-enable;
 		qcom,mdss-dsi-te-using-te-pin;
